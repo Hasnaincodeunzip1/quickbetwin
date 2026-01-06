@@ -1,0 +1,264 @@
+import { useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import { useAuth } from '@/contexts/AuthContext';
+import { useWallet } from '@/contexts/WalletContext';
+import { formatCurrency, mockGameHistory, mockBets } from '@/lib/mockData';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+  Wallet, 
+  ArrowUpCircle, 
+  ArrowDownCircle, 
+  Gamepad2, 
+  History, 
+  Users, 
+  LogOut,
+  Trophy,
+  TrendingUp,
+  Clock
+} from 'lucide-react';
+
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { balance } = useWallet();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate('/auth');
+    } else if (isAdmin) {
+      navigate('/admin');
+    }
+  }, [isAuthenticated, isAdmin, navigate]);
+
+  if (!user) return null;
+
+  const recentBets = mockBets.slice(0, 3);
+  const recentResults = mockGameHistory.slice(0, 10);
+
+  const stats = {
+    totalBets: mockBets.length,
+    wins: mockBets.filter(b => b.won).length,
+    totalWinnings: mockBets.filter(b => b.won).reduce((sum, b) => sum + (b.payout || 0), 0),
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
+
+  return (
+    <div className="min-h-screen bg-background pb-24">
+      {/* Header */}
+      <header className="sticky top-0 z-50 glass border-b border-border">
+        <div className="container max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+          <h1 className="text-xl font-bold">
+            <span className="text-game-red">Color</span>
+            <span className="text-game-green">Win</span>
+          </h1>
+          <button 
+            onClick={handleLogout}
+            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+      </header>
+
+      <main className="container max-w-lg mx-auto px-4 py-6 space-y-6">
+        {/* Welcome & Balance Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <Card className="game-card overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
+            <CardContent className="relative pt-6">
+              <p className="text-muted-foreground text-sm">Welcome back,</p>
+              <p className="text-lg font-semibold mb-4">{user.name}</p>
+              
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                  <Wallet className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Wallet Balance</p>
+                  <p className="text-3xl font-bold text-primary">{formatCurrency(balance)}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Button 
+                  onClick={() => navigate('/wallet?action=deposit')}
+                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                >
+                  <ArrowDownCircle className="w-4 h-4 mr-2" />
+                  Deposit
+                </Button>
+                <Button 
+                  onClick={() => navigate('/wallet?action=withdraw')}
+                  variant="outline"
+                  className="border-border hover:bg-secondary"
+                >
+                  <ArrowUpCircle className="w-4 h-4 mr-2" />
+                  Withdraw
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Quick Stats */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="grid grid-cols-3 gap-3"
+        >
+          <Card className="game-card">
+            <CardContent className="pt-4 text-center">
+              <Trophy className="w-5 h-5 mx-auto mb-1 text-yellow-500" />
+              <p className="text-lg font-bold">{stats.wins}</p>
+              <p className="text-xs text-muted-foreground">Wins</p>
+            </CardContent>
+          </Card>
+          <Card className="game-card">
+            <CardContent className="pt-4 text-center">
+              <Gamepad2 className="w-5 h-5 mx-auto mb-1 text-primary" />
+              <p className="text-lg font-bold">{stats.totalBets}</p>
+              <p className="text-xs text-muted-foreground">Total Bets</p>
+            </CardContent>
+          </Card>
+          <Card className="game-card">
+            <CardContent className="pt-4 text-center">
+              <TrendingUp className="w-5 h-5 mx-auto mb-1 text-game-green" />
+              <p className="text-lg font-bold">{formatCurrency(stats.totalWinnings)}</p>
+              <p className="text-xs text-muted-foreground">Winnings</p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Play Now CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Button
+            onClick={() => navigate('/game')}
+            className="w-full h-16 text-xl font-bold bg-gradient-to-r from-game-red via-game-violet to-game-green hover:opacity-90 transition-opacity glow-primary animate-pulse-glow"
+          >
+            <Gamepad2 className="w-6 h-6 mr-3" />
+            Play Now
+          </Button>
+        </motion.div>
+
+        {/* Recent Results Ticker */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="game-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Recent Results
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2 overflow-x-auto pb-2">
+                {recentResults.map((round, index) => (
+                  <motion.div
+                    key={round.id}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.3 + index * 0.05 }}
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                      round.result === 'red' ? 'bg-game-red' :
+                      round.result === 'green' ? 'bg-game-green' :
+                      'bg-game-violet'
+                    }`}
+                  >
+                    <span className="text-xs font-bold text-white">
+                      {round.result?.charAt(0).toUpperCase()}
+                    </span>
+                  </motion.div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Recent Bets */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <Card className="game-card">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  Your Recent Bets
+                </CardTitle>
+                <Link to="/history" className="text-xs text-primary hover:underline">
+                  View All
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {recentBets.map((bet) => (
+                <div 
+                  key={bet.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg ${
+                      bet.color === 'red' ? 'bg-game-red' :
+                      bet.color === 'green' ? 'bg-game-green' :
+                      'bg-game-violet'
+                    }`} />
+                    <div>
+                      <p className="text-sm font-medium capitalize">{bet.color}</p>
+                      <p className="text-xs text-muted-foreground">{formatCurrency(bet.amount)}</p>
+                    </div>
+                  </div>
+                  <div className={`text-sm font-bold ${bet.won ? 'text-game-green' : 'text-destructive'}`}>
+                    {bet.won ? `+${formatCurrency(bet.payout || 0)}` : 'Lost'}
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </main>
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 glass border-t border-border">
+        <div className="container max-w-lg mx-auto px-4">
+          <div className="flex items-center justify-around py-3">
+            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-primary">
+              <Wallet className="w-5 h-5" />
+              <span className="text-xs">Home</span>
+            </Link>
+            <Link to="/game" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground">
+              <Gamepad2 className="w-5 h-5" />
+              <span className="text-xs">Play</span>
+            </Link>
+            <Link to="/history" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground">
+              <History className="w-5 h-5" />
+              <span className="text-xs">History</span>
+            </Link>
+            <Link to="/referral" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground">
+              <Users className="w-5 h-5" />
+              <span className="text-xs">Referral</span>
+            </Link>
+          </div>
+        </div>
+      </nav>
+    </div>
+  );
+}
