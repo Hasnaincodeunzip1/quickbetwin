@@ -10,8 +10,76 @@ import {
   Clock,
   ArrowRight,
   Star,
-  TrendingUp
+  TrendingUp,
+  Timer,
+  Flame,
+  Target,
+  Sparkles,
+  CircleDot
 } from "lucide-react";
+
+const games = [
+  {
+    id: 1,
+    name: "Color Prediction",
+    description: "Predict Red, Green, or Violet and win up to 4.5x your bet",
+    icon: CircleDot,
+    multiplier: "Up to 4.5x",
+    duration: "1-5 min rounds",
+    color: "from-game-red via-game-green to-game-violet",
+    popular: true,
+  },
+  {
+    id: 2,
+    name: "Fast Parity",
+    description: "Quick 30-second rounds for instant wins and rapid gameplay",
+    icon: Zap,
+    multiplier: "2x",
+    duration: "30 sec rounds",
+    color: "from-yellow-500 to-orange-500",
+    popular: false,
+  },
+  {
+    id: 3,
+    name: "Big/Small",
+    description: "Predict if the number will be big (5-9) or small (0-4)",
+    icon: Target,
+    multiplier: "2x",
+    duration: "1 min rounds",
+    color: "from-blue-500 to-cyan-500",
+    popular: false,
+  },
+  {
+    id: 4,
+    name: "Dice Roll",
+    description: "Predict the dice outcome and multiply your winnings",
+    icon: Sparkles,
+    multiplier: "Up to 6x",
+    duration: "1 min rounds",
+    color: "from-purple-500 to-pink-500",
+    popular: true,
+  },
+  {
+    id: 5,
+    name: "Number Guess",
+    description: "Pick the winning number from 0-9 for massive payouts",
+    icon: Timer,
+    multiplier: "Up to 9x",
+    duration: "3 min rounds",
+    color: "from-emerald-500 to-teal-500",
+    popular: false,
+  },
+  {
+    id: 6,
+    name: "Lucky Spin",
+    description: "Spin the wheel and win exciting prizes and bonuses",
+    icon: Flame,
+    multiplier: "Up to 10x",
+    duration: "Instant",
+    color: "from-rose-500 to-red-500",
+    popular: true,
+  },
+];
 
 const features = [
   {
@@ -184,6 +252,91 @@ const Index = () => {
               <div className="text-sm text-muted-foreground">{stat.label}</div>
             </div>
           ))}
+        </motion.div>
+      </section>
+
+      {/* Games Section */}
+      <section className="relative z-10 py-24 max-w-7xl mx-auto px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mb-16"
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary border border-border mb-4">
+            <Trophy className="w-4 h-4 text-primary" />
+            <span className="text-sm text-muted-foreground">Popular Games</span>
+          </div>
+          <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-4">
+            Choose Your Game
+          </h2>
+          <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+            Multiple exciting games with different odds and payouts. Pick your favorite and start winning!
+          </p>
+        </motion.div>
+
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {games.map((game, index) => (
+            <motion.div
+              key={game.id}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.1 }}
+              className="group relative"
+            >
+              <Link to="/game">
+                <div className="game-card p-6 h-full hover:border-primary/50 transition-all duration-300 overflow-hidden">
+                  {/* Gradient overlay */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${game.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
+                  
+                  {/* Popular badge */}
+                  {game.popular && (
+                    <div className="absolute top-4 right-4 px-2 py-1 bg-primary text-primary-foreground text-xs font-semibold rounded-full">
+                      Popular
+                    </div>
+                  )}
+                  
+                  <div className="relative z-10">
+                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${game.color} flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300`}>
+                      <game.icon className="w-7 h-7 text-white" />
+                    </div>
+                    
+                    <h3 className="text-xl font-bold text-foreground mb-2">{game.name}</h3>
+                    <p className="text-muted-foreground text-sm mb-4">{game.description}</p>
+                    
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
+                          <TrendingUp className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium text-foreground">{game.multiplier}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Clock className="w-4 h-4 text-muted-foreground" />
+                          <span className="text-sm text-muted-foreground">{game.duration}</span>
+                        </div>
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="text-center mt-12"
+        >
+          <Link to="/auth">
+            <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 glow-primary">
+              Play All Games
+              <ArrowRight className="ml-2 w-5 h-5" />
+            </Button>
+          </Link>
         </motion.div>
       </section>
 
