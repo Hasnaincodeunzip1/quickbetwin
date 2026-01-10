@@ -139,19 +139,44 @@ export default function Dashboard() {
           </Card>
         </motion.div>
 
-        {/* Play Now CTA */}
+        {/* Games Section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <Button
-            onClick={() => navigate('/game')}
-            className="w-full h-16 text-xl font-bold bg-gradient-to-r from-game-red via-game-violet to-game-green hover:opacity-90 transition-opacity glow-primary animate-pulse-glow"
-          >
-            <Gamepad2 className="w-6 h-6 mr-3" />
-            Play Now
-          </Button>
+          <Card className="game-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Gamepad2 className="w-4 h-4" />
+                Choose Your Game
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { name: 'Color Prediction', path: '/game/color', color: 'from-game-red to-game-green', icon: '🎨' },
+                  { name: 'Fast Parity', path: '/game/parity', color: 'from-blue-500 to-cyan-500', icon: '⚡' },
+                  { name: 'Big/Small', path: '/game/bigsmall', color: 'from-orange-500 to-yellow-500', icon: '🎲' },
+                  { name: 'Dice Roll', path: '/game/dice', color: 'from-purple-500 to-pink-500', icon: '🎯' },
+                  { name: 'Number Guess', path: '/game/number', color: 'from-green-500 to-emerald-500', icon: '🔢' },
+                  { name: 'Lucky Spin', path: '/game/spin', color: 'from-rose-500 to-red-500', icon: '🎰' },
+                ].map((game, index) => (
+                  <motion.button
+                    key={game.name}
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.2 + index * 0.05 }}
+                    onClick={() => navigate(game.path)}
+                    className={`relative p-4 rounded-xl bg-gradient-to-br ${game.color} hover:scale-105 transition-transform text-white text-left`}
+                  >
+                    <span className="text-2xl mb-2 block">{game.icon}</span>
+                    <span className="text-sm font-semibold">{game.name}</span>
+                  </motion.button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </motion.div>
 
         {/* Recent Results Ticker */}
