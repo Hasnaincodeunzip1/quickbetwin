@@ -8,7 +8,12 @@ import { WalletProvider } from "@/contexts/WalletContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
-import Game from "./pages/Game";
+import ColorGame from "./pages/games/ColorGame";
+import ParityGame from "./pages/games/ParityGame";
+import BigSmallGame from "./pages/games/BigSmallGame";
+import DiceGame from "./pages/games/DiceGame";
+import NumberGame from "./pages/games/NumberGame";
+import SpinGame from "./pages/games/SpinGame";
 import Wallet from "./pages/Wallet";
 import History from "./pages/History";
 import Referral from "./pages/Referral";
@@ -33,7 +38,16 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/game" element={<Game />} />
+              
+              {/* Game Routes */}
+              <Route path="/game" element={<ColorGame />} />
+              <Route path="/game/color" element={<ColorGame />} />
+              <Route path="/game/parity" element={<ParityGame />} />
+              <Route path="/game/bigsmall" element={<BigSmallGame />} />
+              <Route path="/game/dice" element={<DiceGame />} />
+              <Route path="/game/number" element={<NumberGame />} />
+              <Route path="/game/spin" element={<SpinGame />} />
+              
               <Route path="/wallet" element={<Wallet />} />
               <Route path="/history" element={<History />} />
               <Route path="/referral" element={<Referral />} />
