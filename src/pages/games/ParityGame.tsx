@@ -12,9 +12,10 @@ import {
   History, 
   Users, 
   ArrowLeft,
-  Trophy,
   Minus,
-  Plus
+  Plus,
+  Zap,
+  TrendingUp
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -117,10 +118,13 @@ export default function ParityGame() {
     <div className="min-h-screen bg-background pb-24">
       <header className="sticky top-0 z-50 glass border-b border-border">
         <div className="container max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-          <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2">
+          <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 hover:bg-secondary rounded-full transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
-          <h1 className="text-lg font-bold">⚡ Fast Parity</h1>
+          <h1 className="text-lg font-bold flex items-center gap-2">
+            <Zap className="w-5 h-5 text-cyan-500" />
+            Fast Parity
+          </h1>
           <div className="flex items-center gap-2 bg-secondary px-3 py-1.5 rounded-full">
             <Wallet className="w-4 h-4 text-primary" />
             <span className="font-semibold">{formatCurrency(balance)}</span>
@@ -129,77 +133,108 @@ export default function ParityGame() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
+        {/* Timer Card */}
         <Card className="game-card overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-transparent to-cyan-500/10" />
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-transparent to-cyan-500/20" />
           <CardContent className="relative pt-6 text-center">
-            <p className="text-muted-foreground text-sm mb-1">Round #{roundNumber}</p>
+            <div className="flex justify-center gap-2 mb-3">
+              <span className="px-3 py-1 bg-secondary rounded-full text-xs font-medium">
+                Round #{roundNumber}
+              </span>
+              <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-medium flex items-center gap-1">
+                <Zap className="w-3 h-3" /> 30s Rounds
+              </span>
+            </div>
             <motion.div
               key={timeLeft}
               initial={{ scale: 1 }}
-              animate={{ scale: timeLeft <= 5 ? [1, 1.1, 1] : 1 }}
-              className={`text-5xl font-bold font-mono ${
-                timeLeft <= 5 ? 'text-destructive animate-countdown' : 'text-foreground'
+              animate={{ scale: timeLeft <= 5 ? [1, 1.15, 1] : 1 }}
+              className={`text-7xl font-bold font-mono ${
+                timeLeft <= 5 ? 'text-destructive' : 'text-foreground'
               }`}
             >
               0:{timeLeft.toString().padStart(2, '0')}
             </motion.div>
-            <p className={`text-sm mt-2 ${isLocked ? 'text-destructive' : 'text-primary'}`}>
-              {isLocked ? '🔒 Betting Closed' : '⚡ 30 Second Rounds'}
-            </p>
+            <div className="mt-3 h-2 bg-secondary rounded-full overflow-hidden">
+              <motion.div 
+                className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
+                style={{ width: `${(timeLeft / 30) * 100}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
           </CardContent>
         </Card>
 
+        {/* Result Modal */}
         <AnimatePresence>
           {showResult && lastResult && (
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md"
             >
               <motion.div initial={{ y: 50 }} animate={{ y: 0 }} className="text-center">
-                <div className={`w-32 h-32 rounded-full mx-auto mb-4 flex items-center justify-center ${
-                  lastResult.parity === 'even' ? 'bg-blue-500' : 'bg-cyan-500'
-                }`}>
-                  <span className="text-4xl font-bold text-white">{lastResult.number}</span>
-                </div>
-                <h2 className="text-3xl font-bold capitalize mb-2">{lastResult.parity}</h2>
-                <p className="text-muted-foreground">Round Result</p>
+                <motion.div 
+                  className={`w-40 h-40 rounded-3xl mx-auto mb-4 flex items-center justify-center ${
+                    lastResult.parity === 'even' 
+                      ? 'bg-gradient-to-br from-blue-500 to-blue-600 shadow-[0_0_40px_hsl(220_80%_50%/0.5)]' 
+                      : 'bg-gradient-to-br from-cyan-400 to-cyan-500 shadow-[0_0_40px_hsl(180_80%_50%/0.5)]'
+                  }`}
+                  animate={{ rotateY: [0, 360] }}
+                  transition={{ duration: 0.6 }}
+                >
+                  <span className="text-5xl font-bold text-white">{lastResult.number}</span>
+                </motion.div>
+                <h2 className="text-4xl font-bold capitalize mb-2">{lastResult.parity}</h2>
+                <p className="text-muted-foreground text-lg">Round Result</p>
               </motion.div>
             </motion.div>
           )}
         </AnimatePresence>
 
+        {/* Choice Selection */}
         <Card className="game-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Odd or Even?</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-cyan-500" />
+              Odd or Even?
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
               {(['odd', 'even'] as ParityChoice[]).map((choice) => (
                 <motion.button
                   key={choice}
+                  whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => !isLocked && !currentBet && setSelectedChoice(choice)}
                   disabled={isLocked || !!currentBet}
-                  className={`relative h-28 rounded-xl transition-all ${
-                    choice === 'odd' ? 'bg-cyan-500' : 'bg-blue-500'
+                  className={`relative h-32 rounded-2xl transition-all overflow-hidden ${
+                    choice === 'odd' 
+                      ? 'bg-gradient-to-br from-cyan-400 to-cyan-600' 
+                      : 'bg-gradient-to-br from-blue-500 to-blue-700'
                   } ${
                     selectedChoice === choice 
-                      ? 'ring-4 ring-white scale-105' 
-                      : 'opacity-80 hover:opacity-100'
+                      ? 'ring-4 ring-white scale-105 shadow-[0_0_30px_rgba(255,255,255,0.2)]' 
+                      : 'opacity-85 hover:opacity-100'
                   } ${
                     (isLocked || currentBet) ? 'cursor-not-allowed opacity-50' : ''
                   }`}
                 >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                    <span className="text-2xl font-bold capitalize">{choice}</span>
-                    <span className="text-sm opacity-80">1.95x</span>
+                    <span className="text-3xl font-bold capitalize mb-1">{choice}</span>
+                    <span className="text-sm opacity-90 bg-white/20 px-3 py-1 rounded-full">1.95x</span>
                   </div>
                   {currentBet?.choice === choice && (
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center">
-                      <span className="text-xs font-bold text-background">✓</span>
-                    </div>
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg"
+                    >
+                      <span className="text-sm font-bold text-background">✓</span>
+                    </motion.div>
                   )}
                 </motion.button>
               ))}
@@ -207,6 +242,7 @@ export default function ParityGame() {
           </CardContent>
         </Card>
 
+        {/* Bet Amount */}
         <Card className="game-card">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Bet Amount</CardTitle>
@@ -218,11 +254,11 @@ export default function ParityGame() {
                 size="icon"
                 onClick={() => handleBetAmountChange(-50)}
                 disabled={isLocked || !!currentBet || betAmount <= 10}
-                className="w-12 h-12 rounded-full"
+                className="w-14 h-14 rounded-full"
               >
-                <Minus className="w-5 h-5" />
+                <Minus className="w-6 h-6" />
               </Button>
-              <div className="text-3xl font-bold w-32 text-center">
+              <div className="text-4xl font-bold w-36 text-center">
                 {formatCurrency(betAmount)}
               </div>
               <Button
@@ -230,9 +266,9 @@ export default function ParityGame() {
                 size="icon"
                 onClick={() => handleBetAmountChange(50)}
                 disabled={isLocked || !!currentBet || betAmount >= balance}
-                className="w-12 h-12 rounded-full"
+                className="w-14 h-14 rounded-full"
               >
-                <Plus className="w-5 h-5" />
+                <Plus className="w-6 h-6" />
               </Button>
             </div>
 
@@ -253,10 +289,10 @@ export default function ParityGame() {
             <Button
               onClick={handlePlaceBet}
               disabled={!selectedChoice || isLocked || !!currentBet || betAmount > balance}
-              className="w-full h-14 text-lg font-bold bg-gradient-to-r from-blue-500 to-cyan-500 hover:opacity-90 text-white"
+              className="w-full h-16 text-xl font-bold bg-gradient-to-r from-blue-500 to-cyan-500 hover:opacity-90 text-white"
             >
               {currentBet 
-                ? `Bet Placed: ${formatCurrency(currentBet.amount)} on ${currentBet.choice}`
+                ? `✓ ${formatCurrency(currentBet.amount)} on ${currentBet.choice}`
                 : selectedChoice 
                   ? `Place Bet - ${formatCurrency(betAmount)}`
                   : 'Select Odd or Even'
@@ -265,9 +301,13 @@ export default function ParityGame() {
           </CardContent>
         </Card>
 
+        {/* Recent Results */}
         <Card className="game-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Recent Results</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <History className="w-4 h-4" />
+              Recent Results
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
@@ -276,13 +316,18 @@ export default function ParityGame() {
                   key={index}
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                    result.parity === 'even' ? 'bg-blue-500' : 'bg-cyan-500'
+                  className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${
+                    result.parity === 'even' 
+                      ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
+                      : 'bg-gradient-to-br from-cyan-400 to-cyan-500'
                   }`}
                 >
                   <span className="text-sm font-bold text-white">{result.number}</span>
                 </motion.div>
               ))}
+              {resultHistory.length === 0 && (
+                <p className="text-sm text-muted-foreground py-2">No results yet</p>
+              )}
             </div>
           </CardContent>
         </Card>

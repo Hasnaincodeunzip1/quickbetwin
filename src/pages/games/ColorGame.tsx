@@ -6,7 +6,7 @@ import { useWallet } from '@/contexts/WalletContext';
 import { formatCurrency, mockGameHistory, getColorMultiplier } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Wallet, 
   Gamepad2, 
@@ -15,14 +15,16 @@ import {
   Clock,
   Trophy,
   Minus,
-  Plus
+  Plus,
+  Sparkles,
+  Zap
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 type GameColor = 'red' | 'green' | 'violet';
 type GameDuration = 1 | 3 | 5;
 
-export default function Game() {
+export default function ColorGame() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { balance, placeBet, addWinnings } = useWallet();
@@ -43,7 +45,6 @@ export default function Game() {
     }
   }, [isAuthenticated, navigate]);
 
-  // Timer logic
   useEffect(() => {
     const totalSeconds = duration * 60;
     setTimeLeft(totalSeconds);
@@ -57,13 +58,11 @@ export default function Game() {
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          // Round ended - show result
           const results: GameColor[] = ['red', 'green', 'violet'];
           const result = results[Math.floor(Math.random() * 3)];
           setLastResult(result);
           setShowResult(true);
 
-          // Check if user won
           if (currentBet) {
             if (currentBet.color === result) {
               const multiplier = getColorMultiplier(result);
@@ -82,7 +81,6 @@ export default function Game() {
             }
           }
 
-          // Reset for next round
           setTimeout(() => {
             setShowResult(false);
             setCurrentBet(null);
@@ -94,7 +92,6 @@ export default function Game() {
           return duration * 60;
         }
 
-        // Lock betting in last 10 seconds
         if (prev === 11 && !isLocked) {
           setIsLocked(true);
           toast({
@@ -133,15 +130,21 @@ export default function Game() {
   }, [selectedColor, isLocked, currentBet, betAmount, placeBet]);
 
   const presetAmounts = [50, 100, 200, 500, 1000];
-
   const recentResults = mockGameHistory.slice(0, 10);
+
+  const colorConfig = {
+    red: { bg: 'bg-game-red', glow: 'shadow-[0_0_30px_hsl(0_80%_55%/0.4)]', label: 'Red' },
+    green: { bg: 'bg-game-green', glow: 'shadow-[0_0_30px_hsl(142_76%_45%/0.4)]', label: 'Green' },
+    violet: { bg: 'bg-game-violet', glow: 'shadow-[0_0_30px_hsl(270_80%_55%/0.4)]', label: 'Violet' },
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <header className="sticky top-0 z-50 glass border-b border-border">
         <div className="container max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold">
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
             <span className="text-game-red">Color</span>
             <span className="text-game-green">Win</span>
           </h1>
@@ -155,14 +158,14 @@ export default function Game() {
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
         {/* Game Mode Selector */}
         <Tabs value={duration.toString()} onValueChange={(v) => setDuration(Number(v) as GameDuration)}>
-          <TabsList className="grid w-full grid-cols-3 bg-secondary">
-            <TabsTrigger value="1" className="gap-2">
-              <Clock className="w-4 h-4" /> 1 Min
+          <TabsList className="grid w-full grid-cols-3 bg-secondary h-12">
+            <TabsTrigger value="1" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Zap className="w-4 h-4" /> 1 Min
             </TabsTrigger>
-            <TabsTrigger value="3" className="gap-2">
+            <TabsTrigger value="3" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Clock className="w-4 h-4" /> 3 Min
             </TabsTrigger>
-            <TabsTrigger value="5" className="gap-2">
+            <TabsTrigger value="5" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Clock className="w-4 h-4" /> 5 Min
             </TabsTrigger>
           </TabsList>
@@ -170,23 +173,43 @@ export default function Game() {
 
         {/* Timer & Round Info */}
         <Card className="game-card overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
           <CardContent className="relative pt-6 text-center">
-            <p className="text-muted-foreground text-sm mb-1">Round #{roundNumber}</p>
+            <div className="flex justify-center gap-2 mb-2">
+              <span className="px-3 py-1 bg-secondary rounded-full text-xs font-medium">
+                Round #{roundNumber}
+              </span>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${isLocked ? 'bg-destructive text-destructive-foreground' : 'bg-primary/20 text-primary'}`}>
+                {isLocked ? '🔒 Locked' : '🎲 Open'}
+              </span>
+            </div>
             <motion.div
               key={timeLeft}
               initial={{ scale: 1 }}
               animate={{ scale: timeLeft <= 10 ? [1, 1.1, 1] : 1 }}
               transition={{ duration: 0.5 }}
-              className={`text-5xl font-bold font-mono ${
-                timeLeft <= 10 ? 'text-destructive animate-countdown' : 'text-foreground'
+              className={`text-6xl font-bold font-mono ${
+                timeLeft <= 10 ? 'text-destructive' : 'text-foreground'
               }`}
             >
               {formatTime(timeLeft)}
             </motion.div>
-            <p className={`text-sm mt-2 ${isLocked ? 'text-destructive' : 'text-primary'}`}>
-              {isLocked ? '🔒 Betting Closed' : '🎲 Place Your Bet'}
-            </p>
+            {timeLeft <= 10 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mt-2"
+              >
+                <div className="h-1 bg-secondary rounded-full overflow-hidden">
+                  <motion.div 
+                    className="h-full bg-destructive"
+                    initial={{ width: '100%' }}
+                    animate={{ width: '0%' }}
+                    transition={{ duration: timeLeft, ease: 'linear' }}
+                  />
+                </div>
+              </motion.div>
+            )}
           </CardContent>
         </Card>
 
@@ -197,22 +220,23 @@ export default function Game() {
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
-              className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm"
+              className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md"
             >
               <motion.div
-                initial={{ y: 50 }}
-                animate={{ y: 0 }}
+                initial={{ y: 50, rotateY: 0 }}
+                animate={{ y: 0, rotateY: 360 }}
+                transition={{ duration: 0.6 }}
                 className="text-center"
               >
-                <div className={`w-32 h-32 rounded-full mx-auto mb-4 flex items-center justify-center ${
-                  lastResult === 'red' ? 'bg-game-red' :
-                  lastResult === 'green' ? 'bg-game-green' :
-                  'bg-game-violet'
-                }`}>
+                <motion.div 
+                  className={`w-36 h-36 rounded-full mx-auto mb-4 flex items-center justify-center ${colorConfig[lastResult].bg} ${colorConfig[lastResult].glow}`}
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ repeat: Infinity, duration: 1 }}
+                >
                   <Trophy className="w-16 h-16 text-white" />
-                </div>
-                <h2 className="text-3xl font-bold capitalize mb-2">{lastResult}</h2>
-                <p className="text-muted-foreground">Round Result</p>
+                </motion.div>
+                <h2 className="text-4xl font-bold capitalize mb-2">{lastResult}</h2>
+                <p className="text-muted-foreground text-lg">Round Result</p>
               </motion.div>
             </motion.div>
           )}
@@ -221,36 +245,43 @@ export default function Game() {
         {/* Color Selection */}
         <Card className="game-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Select Color</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" />
+              Select Color
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-3 gap-3">
               {(['red', 'green', 'violet'] as GameColor[]).map((color) => (
                 <motion.button
                   key={color}
+                  whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => !isLocked && !currentBet && setSelectedColor(color)}
                   disabled={isLocked || !!currentBet}
-                  className={`relative h-24 rounded-xl transition-all ${
-                    color === 'red' ? 'bg-game-red' :
-                    color === 'green' ? 'bg-game-green' :
-                    'bg-game-violet'
-                  } ${
+                  className={`relative h-28 rounded-2xl transition-all overflow-hidden ${colorConfig[color].bg} ${
                     selectedColor === color 
-                      ? 'ring-4 ring-white scale-105' 
+                      ? `ring-4 ring-white ${colorConfig[color].glow} scale-105` 
                       : 'opacity-80 hover:opacity-100'
                   } ${
                     (isLocked || currentBet) ? 'cursor-not-allowed opacity-50' : ''
                   }`}
                 >
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                    <span className="text-lg font-bold capitalize">{color}</span>
-                    <span className="text-sm opacity-80">{getColorMultiplier(color)}x</span>
+                    <span className="text-xl font-bold capitalize">{color}</span>
+                    <span className="text-sm opacity-90 bg-white/20 px-2 py-0.5 rounded-full mt-1">
+                      {getColorMultiplier(color)}x
+                    </span>
                   </div>
                   {currentBet?.color === color && (
-                    <div className="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full flex items-center justify-center">
-                      <span className="text-xs font-bold text-background">✓</span>
-                    </div>
+                    <motion.div 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg"
+                    >
+                      <span className="text-sm font-bold text-background">✓</span>
+                    </motion.div>
                   )}
                 </motion.button>
               ))}
@@ -264,18 +295,17 @@ export default function Game() {
             <CardTitle className="text-sm">Bet Amount</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Amount Adjuster */}
             <div className="flex items-center justify-center gap-4">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => handleBetAmountChange(-50)}
                 disabled={isLocked || !!currentBet || betAmount <= 10}
-                className="w-12 h-12 rounded-full"
+                className="w-14 h-14 rounded-full text-lg"
               >
-                <Minus className="w-5 h-5" />
+                <Minus className="w-6 h-6" />
               </Button>
-              <div className="text-3xl font-bold w-32 text-center">
+              <div className="text-4xl font-bold w-36 text-center">
                 {formatCurrency(betAmount)}
               </div>
               <Button
@@ -283,13 +313,12 @@ export default function Game() {
                 size="icon"
                 onClick={() => handleBetAmountChange(50)}
                 disabled={isLocked || !!currentBet || betAmount >= balance}
-                className="w-12 h-12 rounded-full"
+                className="w-14 h-14 rounded-full text-lg"
               >
-                <Plus className="w-5 h-5" />
+                <Plus className="w-6 h-6" />
               </Button>
             </div>
 
-            {/* Preset Amounts */}
             <div className="flex flex-wrap justify-center gap-2">
               {presetAmounts.map((amount) => (
                 <Button
@@ -298,21 +327,20 @@ export default function Game() {
                   size="sm"
                   onClick={() => !isLocked && !currentBet && setBetAmount(Math.min(amount, balance))}
                   disabled={isLocked || !!currentBet}
-                  className={betAmount === amount ? 'bg-primary text-primary-foreground' : ''}
+                  className={`px-4 ${betAmount === amount ? 'bg-primary text-primary-foreground' : ''}`}
                 >
                   {formatCurrency(amount)}
                 </Button>
               ))}
             </div>
 
-            {/* Place Bet Button */}
             <Button
               onClick={handlePlaceBet}
               disabled={!selectedColor || isLocked || !!currentBet || betAmount > balance}
-              className="w-full h-14 text-lg font-bold bg-primary hover:bg-primary/90 text-primary-foreground glow-primary disabled:opacity-50"
+              className="w-full h-16 text-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground glow-primary disabled:opacity-50"
             >
               {currentBet 
-                ? `Bet Placed: ${formatCurrency(currentBet.amount)} on ${currentBet.color}`
+                ? `✓ ${formatCurrency(currentBet.amount)} on ${currentBet.color}`
                 : selectedColor 
                   ? `Place Bet - ${formatCurrency(betAmount)}`
                   : 'Select a Color'
@@ -324,7 +352,10 @@ export default function Game() {
         {/* Recent Results */}
         <Card className="game-card">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Recent Results</CardTitle>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <History className="w-4 h-4" />
+              Recent Results
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
@@ -334,7 +365,7 @@ export default function Game() {
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.05 }}
-                  className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                  className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
                     round.result === 'red' ? 'bg-game-red' :
                     round.result === 'green' ? 'bg-game-green' :
                     'bg-game-violet'
@@ -358,7 +389,7 @@ export default function Game() {
               <Wallet className="w-5 h-5" />
               <span className="text-xs">Home</span>
             </Link>
-            <Link to="/game" className="flex flex-col items-center gap-1 text-primary">
+            <Link to="/game/color" className="flex flex-col items-center gap-1 text-primary">
               <Gamepad2 className="w-5 h-5" />
               <span className="text-xs">Play</span>
             </Link>
