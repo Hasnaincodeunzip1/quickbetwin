@@ -21,18 +21,20 @@ import {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, isAuthenticated, isAdmin, logout } = useAuth();
+  const { user, profile, isAuthenticated, isAdmin, isLoading, logout } = useAuth();
   const { balance } = useWallet();
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/auth');
-    } else if (isAdmin) {
+    } else if (!isLoading && isAdmin) {
       navigate('/admin');
     }
-  }, [isAuthenticated, isAdmin, navigate]);
+  }, [isAuthenticated, isAdmin, isLoading, navigate]);
 
-  if (!user) return null;
+  if (isLoading || !user) return null;
+  
+  const displayName = profile?.name || user.email?.split('@')[0] || 'Player';
 
   const recentBets = mockBets.slice(0, 3);
   const recentResults = mockGameHistory.slice(0, 10);
@@ -76,7 +78,7 @@ export default function Dashboard() {
             <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
             <CardContent className="relative pt-6">
               <p className="text-muted-foreground text-sm">Welcome back,</p>
-              <p className="text-lg font-semibold mb-4">{user.name}</p>
+              <p className="text-lg font-semibold mb-4">{displayName}</p>
               
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">

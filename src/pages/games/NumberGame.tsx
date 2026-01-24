@@ -22,7 +22,7 @@ import { toast } from '@/hooks/use-toast';
 
 export default function NumberGame() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { balance, placeBet, addWinnings } = useWallet();
 
   const [timeLeft, setTimeLeft] = useState(90);
@@ -38,10 +38,10 @@ export default function NumberGame() {
   const [isSpinning, setIsSpinning] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   useEffect(() => {
     const interval = setInterval(() => {

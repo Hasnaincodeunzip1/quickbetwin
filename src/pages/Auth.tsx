@@ -1,89 +1,101 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, Phone, Lock, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, User } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { login, loginWithOTP, sendOTP } = useAuth();
+  const { login, signup, isAuthenticated } = useAuth();
   
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   
-  // Email form state
+  // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  
-  // Phone form state
-  const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  
   const [loading, setLoading] = useState(false);
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    const success = await login(email, password);
-    
-    setLoading(false);
-    
-    if (success) {
-      toast({ title: "Welcome back!", description: "You've successfully logged in." });
-      navigate('/dashboard');
-    } else {
-      toast({ 
-        title: "Login Failed", 
-        description: "Invalid email or password.", 
-        variant: "destructive" 
-      });
-    }
-  };
+  // Redirect if already authenticated
+  if (isAuthenticated) {
+    navigate('/dashboard');
+    return null;
+  }
 
-  const handleSendOTP = async () => {
-    if (phone.length < 10) {
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
       toast({ 
-        title: "Invalid Phone", 
-        description: "Please enter a valid phone number.", 
+        title: "Missing Fields", 
+        description: "Please enter both email and password.", 
         variant: "destructive" 
       });
       return;
     }
     
     setLoading(true);
-    const success = await sendOTP(phone);
-    setLoading(false);
     
-    if (success) {
-      setOtpSent(true);
-      toast({ title: "OTP Sent!", description: "Check your phone for the verification code." });
-    }
-  };
-
-  const handleOTPLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    const success = await loginWithOTP(phone, otp);
+    const result = await login(email, password);
     
     setLoading(false);
     
-    if (success) {
-      toast({ title: "Welcome!", description: "You've successfully logged in." });
+    if (result.success) {
+      toast({ title: "Welcome back!", description: "You've successfully logged in." });
       navigate('/dashboard');
     } else {
       toast({ 
-        title: "Verification Failed", 
-        description: "Invalid OTP. Please try again.", 
+        title: "Login Failed", 
+        description: result.error || "Invalid email or password.", 
+        variant: "destructive" 
+      });
+    }
+  };
+
+  const handleSignup = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!email || !password) {
+      toast({ 
+        title: "Missing Fields", 
+        description: "Please enter email and password.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({ 
+        title: "Weak Password", 
+        description: "Password must be at least 6 characters.", 
+        variant: "destructive" 
+      });
+      return;
+    }
+    
+    setLoading(true);
+    
+    const result = await signup(email, password, name);
+    
+    setLoading(false);
+    
+    if (result.success) {
+      toast({ 
+        title: "Account Created!", 
+        description: "Welcome to ColorWin! You're now logged in." 
+      });
+      navigate('/dashboard');
+    } else {
+      toast({ 
+        title: "Signup Failed", 
+        description: result.error || "Could not create account.", 
         variant: "destructive" 
       });
     }
@@ -130,29 +142,17 @@ export default function Auth() {
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
-            </Tabs>
 
-            {/* Login Method Toggle */}
-            <Tabs value={loginMethod} onValueChange={(v) => setLoginMethod(v as 'email' | 'phone')}>
-              <TabsList className="grid w-full grid-cols-2 bg-secondary">
-                <TabsTrigger value="email" className="gap-2">
-                  <Mail className="w-4 h-4" /> Email
-                </TabsTrigger>
-                <TabsTrigger value="phone" className="gap-2">
-                  <Phone className="w-4 h-4" /> Phone
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="email" className="mt-4">
-                <form onSubmit={handleEmailLogin} className="space-y-4">
+              <TabsContent value="login" className="mt-4">
+                <form onSubmit={handleLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
+                    <Label htmlFor="login-email">Email</Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
-                        id="email"
+                        id="login-email"
                         type="email"
-                        placeholder="player@example.com"
+                        placeholder="you@example.com"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         className="pl-10 bg-secondary border-border"
@@ -162,11 +162,11 @@ export default function Auth() {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="login-password">Password</Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
-                        id="password"
+                        id="login-password"
                         type={showPassword ? 'text' : 'password'}
                         placeholder="••••••••"
                         value={password}
@@ -194,7 +194,7 @@ export default function Auth() {
                       <Loader2 className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
-                        {authMode === 'login' ? 'Sign In' : 'Create Account'}
+                        Sign In
                         <ArrowRight className="w-4 h-4 ml-2" />
                       </>
                     )}
@@ -202,102 +202,86 @@ export default function Auth() {
                 </form>
               </TabsContent>
 
-              <TabsContent value="phone" className="mt-4">
-                <form onSubmit={handleOTPLogin} className="space-y-4">
+              <TabsContent value="signup" className="mt-4">
+                <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
+                    <Label htmlFor="signup-name">Display Name (optional)</Label>
                     <div className="relative">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                       <Input
-                        id="phone"
-                        type="tel"
-                        placeholder="+91 98765 43210"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
+                        id="signup-name"
+                        type="text"
+                        placeholder="Lucky Player"
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
                         className="pl-10 bg-secondary border-border"
-                        disabled={otpSent}
-                        required
                       />
                     </div>
                   </div>
 
-                  <AnimatePresence>
-                    {otpSent && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="space-y-2"
-                      >
-                        <Label htmlFor="otp">Verification Code</Label>
-                        <Input
-                          id="otp"
-                          type="text"
-                          placeholder="Enter 6-digit OTP"
-                          value={otp}
-                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                          className="bg-secondary border-border text-center text-lg tracking-widest"
-                          maxLength={6}
-                          required
-                        />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {!otpSent ? (
-                    <Button
-                      type="button"
-                      onClick={handleSendOTP}
-                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground glow-primary"
-                      disabled={loading}
-                    >
-                      {loading ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <>
-                          Send OTP
-                          <ArrowRight className="w-4 h-4 ml-2" />
-                        </>
-                      )}
-                    </Button>
-                  ) : (
-                    <div className="space-y-2">
-                      <Button
-                        type="submit"
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground glow-primary"
-                        disabled={loading || otp.length !== 6}
-                      >
-                        {loading ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : (
-                          <>
-                            Verify & Continue
-                            <ArrowRight className="w-4 h-4 ml-2" />
-                          </>
-                        )}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="w-full text-muted-foreground"
-                        onClick={() => {
-                          setOtpSent(false);
-                          setOtp('');
-                        }}
-                      >
-                        Change Phone Number
-                      </Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="signup-email"
+                        type="email"
+                        placeholder="you@example.com"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="pl-10 bg-secondary border-border"
+                        required
+                      />
                     </div>
-                  )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                      <Input
+                        id="signup-password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="pl-10 pr-10 bg-secondary border-border"
+                        required
+                        minLength={6}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">Minimum 6 characters</p>
+                  </div>
+
+                  <Button 
+                    type="submit" 
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground glow-primary"
+                    disabled={loading}
+                  >
+                    {loading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <>
+                        Create Account
+                        <ArrowRight className="w-4 h-4 ml-2" />
+                      </>
+                    )}
+                  </Button>
                 </form>
               </TabsContent>
             </Tabs>
 
-            {/* Demo credentials hint */}
+            {/* Info text */}
             <div className="pt-4 border-t border-border">
               <p className="text-xs text-center text-muted-foreground">
-                Demo: Use any email with 6+ char password<br />
-                Admin: admin@colorwin.com / admin123
+                By signing up, you agree to our Terms of Service and Privacy Policy
               </p>
             </div>
           </CardContent>

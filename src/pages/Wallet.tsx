@@ -27,7 +27,7 @@ import { toast } from '@/hooks/use-toast';
 export default function Wallet() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { balance, transactions, deposit, withdraw } = useWallet();
 
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw' | 'history'>(
@@ -39,10 +39,10 @@ export default function Wallet() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   const handleDeposit = async () => {
     const amount = parseFloat(depositAmount);
