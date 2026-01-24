@@ -43,7 +43,7 @@ const symbolNames: Record<SpinSymbol, string> = {
 
 export default function SpinGame() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { balance, placeBet, addWinnings } = useWallet();
 
   const [betAmount, setBetAmount] = useState(100);
@@ -54,10 +54,10 @@ export default function SpinGame() {
   const [resultHistory, setResultHistory] = useState<{ reels: SpinSymbol[]; won: boolean; amount?: number }[]>([]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   const handleBetAmountChange = (delta: number) => {
     setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));

@@ -35,7 +35,7 @@ const DiceIcon = ({ value }: { value: number }) => {
 
 export default function BigSmallGame() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { balance, placeBet, addWinnings } = useWallet();
 
   const [timeLeft, setTimeLeft] = useState(45);
@@ -49,10 +49,10 @@ export default function BigSmallGame() {
   const [resultHistory, setResultHistory] = useState<{ total: number; size: SizeChoice }[]>([]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   useEffect(() => {
     const interval = setInterval(() => {

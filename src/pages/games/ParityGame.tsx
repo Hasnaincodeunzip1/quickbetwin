@@ -23,7 +23,7 @@ type ParityChoice = 'odd' | 'even';
 
 export default function ParityGame() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { balance, placeBet, addWinnings } = useWallet();
 
   const [timeLeft, setTimeLeft] = useState(30);
@@ -37,10 +37,10 @@ export default function ParityGame() {
   const [resultHistory, setResultHistory] = useState<{ number: number; parity: ParityChoice }[]>([]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   useEffect(() => {
     const interval = setInterval(() => {

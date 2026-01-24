@@ -31,7 +31,7 @@ const diceColors = [
 
 export default function DiceGame() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { balance, placeBet, addWinnings } = useWallet();
 
   const [timeLeft, setTimeLeft] = useState(60);
@@ -46,10 +46,10 @@ export default function DiceGame() {
   const [isRolling, setIsRolling] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   useEffect(() => {
     const interval = setInterval(() => {

@@ -26,7 +26,7 @@ type GameDuration = 1 | 3 | 5;
 
 export default function ColorGame() {
   const navigate = useNavigate();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const { balance, placeBet, addWinnings } = useWallet();
 
   const [duration, setDuration] = useState<GameDuration>(1);
@@ -40,10 +40,10 @@ export default function ColorGame() {
   const [roundNumber, setRoundNumber] = useState(2024010151);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
   useEffect(() => {
     const totalSeconds = duration * 60;

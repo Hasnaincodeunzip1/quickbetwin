@@ -35,16 +35,16 @@ const mockLotteryTickets = [
 
 export default function Referral() {
   const navigate = useNavigate();
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, profile, isLoading } = useAuth();
   const [showLotteryModal, setShowLotteryModal] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
 
-  const referralCode = user?.referralCode || 'LUCKY2024';
+  const referralCode = profile?.referral_code || 'LOADING...';
   const referralLink = `https://colorwin.app/ref/${referralCode}`;
   
   // Get referral stats
