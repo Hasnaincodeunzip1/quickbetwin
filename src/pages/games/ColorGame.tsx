@@ -3,7 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
-import { formatCurrency, mockGameHistory, getColorMultiplier } from '@/lib/mockData';
+import { useGameRounds, GameType } from '@/hooks/useGameRounds';
+import { useBets } from '@/hooks/useBets';
+import { formatCurrency, getColorMultiplier } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -27,14 +29,18 @@ type GameDuration = 1 | 3 | 5;
 export default function ColorGame() {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useAuth();
-  const { balance, placeBet, addWinnings } = useWallet();
-
+  const { balance, refetchBalance } = useWallet();
+  const { placeBet, currentBet, isPlacingBet, clearCurrentBet, fetchBetForRound } = useBets();
+  
   const [duration, setDuration] = useState<GameDuration>(1);
+  const gameType: GameType = 'color';
+  const { currentRound, recentResults } = useGameRounds({ gameType, durationMinutes: duration });
+
   const [timeLeft, setTimeLeft] = useState(60);
   const [isLocked, setIsLocked] = useState(false);
   const [selectedColor, setSelectedColor] = useState<GameColor | null>(null);
   const [betAmount, setBetAmount] = useState(100);
-  const [currentBet, setCurrentBet] = useState<{ color: GameColor; amount: number } | null>(null);
+  const [localBet, setLocalBet] = useState<{ color: GameColor; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<GameColor | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [roundNumber, setRoundNumber] = useState(2024010151);
@@ -45,49 +51,104 @@ export default function ColorGame() {
     }
   }, [isAuthenticated, isLoading, navigate]);
 
+  // Sync with current round from database
+  useEffect(() => {
+    if (currentRound) {
+      setRoundNumber(currentRound.round_number);
+      const endTime = new Date(currentRound.end_time).getTime();
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
+      setTimeLeft(remaining);
+      
+      // Fetch existing bet for this round
+      fetchBetForRound(currentRound.id);
+    }
+  }, [currentRound, fetchBetForRound]);
+
+  // Handle completed rounds
+  useEffect(() => {
+    if (recentResults.length > 0 && recentResults[0].result) {
+      const latestResult = recentResults[0].result as GameColor;
+      setLastResult(latestResult);
+      setShowResult(true);
+      
+      // Check if user won
+      if (localBet && localBet.color === latestResult) {
+        const multiplier = getColorMultiplier(latestResult);
+        const winAmount = localBet.amount * multiplier;
+        toast({
+          title: "🎉 You Won!",
+          description: `Congratulations! You won ₹${winAmount}`,
+        });
+        refetchBalance();
+      } else if (localBet) {
+        toast({
+          title: "Better luck next time!",
+          description: `The result was ${latestResult}. Keep playing!`,
+          variant: "destructive",
+        });
+      }
+
+      setTimeout(() => {
+        setShowResult(false);
+        setLocalBet(null);
+        clearCurrentBet();
+        setSelectedColor(null);
+        setIsLocked(false);
+        refetchBalance();
+      }, 3000);
+    }
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+
   useEffect(() => {
     const totalSeconds = duration * 60;
     setTimeLeft(totalSeconds);
     setIsLocked(false);
-    setCurrentBet(null);
+    setLocalBet(null);
+    clearCurrentBet();
     setSelectedColor(null);
     setShowResult(false);
-  }, [duration]);
+  }, [duration, clearCurrentBet]);
 
+  // Timer countdown (local simulation when no DB round exists)
   useEffect(() => {
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          const results: GameColor[] = ['red', 'green', 'violet'];
-          const result = results[Math.floor(Math.random() * 3)];
-          setLastResult(result);
-          setShowResult(true);
+          // Local simulation when no active round
+          if (!currentRound) {
+            const results: GameColor[] = ['red', 'green', 'violet'];
+            const result = results[Math.floor(Math.random() * 3)];
+            setLastResult(result);
+            setShowResult(true);
 
-          if (currentBet) {
-            if (currentBet.color === result) {
-              const multiplier = getColorMultiplier(result);
-              const winAmount = currentBet.amount * multiplier;
-              addWinnings(winAmount);
-              toast({
-                title: "🎉 You Won!",
-                description: `Congratulations! You won ${formatCurrency(winAmount)}`,
-              });
-            } else {
-              toast({
-                title: "Better luck next time!",
-                description: `The result was ${result}. Keep playing!`,
-                variant: "destructive",
-              });
+            if (localBet) {
+              if (localBet.color === result) {
+                const multiplier = getColorMultiplier(result);
+                const winAmount = localBet.amount * multiplier;
+                toast({
+                  title: "🎉 You Won!",
+                  description: `Congratulations! You won ₹${winAmount}`,
+                });
+              } else {
+                toast({
+                  title: "Better luck next time!",
+                  description: `The result was ${result}. Keep playing!`,
+                  variant: "destructive",
+                });
+              }
+              refetchBalance();
             }
-          }
 
-          setTimeout(() => {
-            setShowResult(false);
-            setCurrentBet(null);
-            setSelectedColor(null);
-            setIsLocked(false);
-            setRoundNumber(prev => prev + 1);
-          }, 3000);
+            setTimeout(() => {
+              setShowResult(false);
+              setLocalBet(null);
+              clearCurrentBet();
+              setSelectedColor(null);
+              setIsLocked(false);
+              setRoundNumber(prev => prev + 1);
+            }, 3000);
+          }
 
           return duration * 60;
         }
@@ -105,7 +166,7 @@ export default function ColorGame() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [duration, currentBet, isLocked, addWinnings]);
+  }, [duration, localBet, isLocked, currentRound, clearCurrentBet, refetchBalance]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -117,20 +178,36 @@ export default function ColorGame() {
     setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));
   };
 
-  const handlePlaceBet = useCallback(() => {
-    if (!selectedColor || isLocked || currentBet) return;
+  const handlePlaceBet = useCallback(async () => {
+    if (!selectedColor || isLocked || localBet || isPlacingBet) return;
 
-    if (placeBet(betAmount)) {
-      setCurrentBet({ color: selectedColor, amount: betAmount });
+    if (betAmount > balance) {
+      toast({
+        title: "Insufficient Balance",
+        description: "You don't have enough balance for this bet.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // If there's a DB round, use the API
+    if (currentRound) {
+      const bet = await placeBet(currentRound.id, selectedColor, betAmount);
+      if (bet) {
+        setLocalBet({ color: selectedColor, amount: betAmount });
+        refetchBalance();
+      }
+    } else {
+      // Local simulation
+      setLocalBet({ color: selectedColor, amount: betAmount });
       toast({
         title: "Bet Placed!",
-        description: `${formatCurrency(betAmount)} on ${selectedColor}`,
+        description: `₹${betAmount} on ${selectedColor}`,
       });
     }
-  }, [selectedColor, isLocked, currentBet, betAmount, placeBet]);
+  }, [selectedColor, isLocked, localBet, isPlacingBet, betAmount, balance, currentRound, placeBet, refetchBalance]);
 
   const presetAmounts = [50, 100, 200, 500, 1000];
-  const recentResults = mockGameHistory.slice(0, 10);
 
   const colorConfig = {
     red: { bg: 'bg-game-red', glow: 'shadow-[0_0_30px_hsl(0_80%_55%/0.4)]', label: 'Red' },
@@ -257,14 +334,14 @@ export default function ColorGame() {
                   key={color}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => !isLocked && !currentBet && setSelectedColor(color)}
-                  disabled={isLocked || !!currentBet}
+                  onClick={() => !isLocked && !localBet && setSelectedColor(color)}
+                  disabled={isLocked || !!localBet}
                   className={`relative h-28 rounded-2xl transition-all overflow-hidden ${colorConfig[color].bg} ${
                     selectedColor === color 
                       ? `ring-4 ring-white ${colorConfig[color].glow} scale-105` 
                       : 'opacity-80 hover:opacity-100'
                   } ${
-                    (isLocked || currentBet) ? 'cursor-not-allowed opacity-50' : ''
+                    (isLocked || localBet) ? 'cursor-not-allowed opacity-50' : ''
                   }`}
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
@@ -274,7 +351,7 @@ export default function ColorGame() {
                       {getColorMultiplier(color)}x
                     </span>
                   </div>
-                  {currentBet?.color === color && (
+                  {localBet?.color === color && (
                     <motion.div 
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -300,7 +377,7 @@ export default function ColorGame() {
                 variant="outline"
                 size="icon"
                 onClick={() => handleBetAmountChange(-50)}
-                disabled={isLocked || !!currentBet || betAmount <= 10}
+                disabled={isLocked || !!localBet || betAmount <= 10}
                 className="w-14 h-14 rounded-full text-lg"
               >
                 <Minus className="w-6 h-6" />
@@ -312,7 +389,7 @@ export default function ColorGame() {
                 variant="outline"
                 size="icon"
                 onClick={() => handleBetAmountChange(50)}
-                disabled={isLocked || !!currentBet || betAmount >= balance}
+                disabled={isLocked || !!localBet || betAmount >= balance}
                 className="w-14 h-14 rounded-full text-lg"
               >
                 <Plus className="w-6 h-6" />
@@ -325,8 +402,8 @@ export default function ColorGame() {
                   key={amount}
                   variant={betAmount === amount ? "default" : "outline"}
                   size="sm"
-                  onClick={() => !isLocked && !currentBet && setBetAmount(Math.min(amount, balance))}
-                  disabled={isLocked || !!currentBet}
+                  onClick={() => !isLocked && !localBet && setBetAmount(Math.min(amount, balance))}
+                  disabled={isLocked || !!localBet}
                   className={`px-4 ${betAmount === amount ? 'bg-primary text-primary-foreground' : ''}`}
                 >
                   {formatCurrency(amount)}
@@ -336,14 +413,16 @@ export default function ColorGame() {
 
             <Button
               onClick={handlePlaceBet}
-              disabled={!selectedColor || isLocked || !!currentBet || betAmount > balance}
+              disabled={!selectedColor || isLocked || !!localBet || betAmount > balance || isPlacingBet}
               className="w-full h-16 text-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground glow-primary disabled:opacity-50"
             >
-              {currentBet 
-                ? `✓ ${formatCurrency(currentBet.amount)} on ${currentBet.color}`
-                : selectedColor 
-                  ? `Place Bet - ${formatCurrency(betAmount)}`
-                  : 'Select a Color'
+              {isPlacingBet 
+                ? 'Placing Bet...'
+                : localBet 
+                  ? `✓ ${formatCurrency(localBet.amount)} on ${localBet.color}`
+                  : selectedColor 
+                    ? `Place Bet - ${formatCurrency(betAmount)}`
+                    : 'Select a Color'
               }
             </Button>
           </CardContent>
@@ -359,23 +438,27 @@ export default function ColorGame() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {recentResults.map((round, index) => (
-                <motion.div
-                  key={round.id}
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                    round.result === 'red' ? 'bg-game-red' :
-                    round.result === 'green' ? 'bg-game-green' :
-                    'bg-game-violet'
-                  }`}
-                >
-                  <span className="text-sm font-bold text-white">
-                    {round.result?.charAt(0).toUpperCase()}
-                  </span>
-                </motion.div>
-              ))}
+              {recentResults.length > 0 ? (
+                recentResults.map((round, index) => (
+                  <motion.div
+                    key={round.id}
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: index * 0.05 }}
+                    className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                      round.result === 'red' ? 'bg-game-red' :
+                      round.result === 'green' ? 'bg-game-green' :
+                      'bg-game-violet'
+                    }`}
+                  >
+                    <span className="text-sm font-bold text-white">
+                      {round.result?.charAt(0).toUpperCase()}
+                    </span>
+                  </motion.div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground py-2">No results yet</p>
+              )}
             </div>
           </CardContent>
         </Card>

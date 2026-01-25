@@ -1,49 +1,192 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
-import { Transaction, mockTransactions, formatCurrency } from '@/lib/mockData';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
+
+interface Transaction {
+  id: string;
+  user_id: string;
+  type: string;
+  amount: number;
+  status: string;
+  created_at: string;
+  reference: string | null;
+  bank_details: string | null;
+}
 
 interface WalletContextType {
   balance: number;
   transactions: Transaction[];
+  isLoading: boolean;
   deposit: (amount: number) => Promise<boolean>;
   withdraw: (amount: number, bankDetails: string) => Promise<boolean>;
-  placeBet: (amount: number) => boolean;
-  addWinnings: (amount: number) => void;
+  refetchBalance: () => Promise<void>;
+  refetchTransactions: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: ReactNode }) {
-  const [balance, setBalance] = useState(2500);
-  const [transactions, setTransactions] = useState<Transaction[]>(mockTransactions);
+  const [balance, setBalance] = useState(0);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+
+  const fetchBalance = useCallback(async () => {
+    if (!user) {
+      setBalance(0);
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('wallets')
+        .select('balance')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching wallet:', error);
+        return;
+      }
+
+      setBalance(data?.balance || 0);
+    } catch (error) {
+      console.error('Error fetching balance:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  const fetchTransactions = useCallback(async () => {
+    if (!user) {
+      setTransactions([]);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Error fetching transactions:', error);
+        return;
+      }
+
+      setTransactions(data || []);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+    }
+  }, [user]);
+
+  // Subscribe to wallet and transaction changes
+  useEffect(() => {
+    if (!user) {
+      setBalance(0);
+      setTransactions([]);
+      setIsLoading(false);
+      return;
+    }
+
+    fetchBalance();
+    fetchTransactions();
+
+    const walletChannel = supabase
+      .channel(`wallet_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'wallets',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          if (payload.new) {
+            setBalance((payload.new as { balance: number }).balance);
+          }
+        }
+      )
+      .subscribe();
+
+    const transactionChannel = supabase
+      .channel(`transactions_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'transactions',
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          fetchTransactions();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(walletChannel);
+      supabase.removeChannel(transactionChannel);
+    };
+  }, [user, fetchBalance, fetchTransactions]);
 
   const deposit = async (amount: number): Promise<boolean> => {
-    // Mock deposit - in real app, this would integrate with Razorpay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setBalance(prev => prev + amount);
-    
-    const newTransaction: Transaction = {
-      id: `t_${Date.now()}`,
-      userId: 'user_1',
-      type: 'deposit',
-      amount,
-      status: 'completed',
-      createdAt: new Date().toISOString(),
-      reference: `Razorpay #RP${Date.now()}`,
-    };
-    
-    setTransactions(prev => [newTransaction, ...prev]);
-    
-    toast({
-      title: "Deposit Successful!",
-      description: `${formatCurrency(amount)} has been added to your wallet.`,
-    });
-    
-    return true;
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "Please log in to make a deposit",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    try {
+      // Create transaction record
+      const { error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'deposit',
+          amount: amount,
+          status: 'pending',
+          reference: `DEP${Date.now()}`,
+        });
+
+      if (txError) throw txError;
+
+      toast({
+        title: "Deposit Requested",
+        description: `₹${amount} deposit is pending approval.`,
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Deposit error:', error);
+      toast({
+        title: "Deposit Failed",
+        description: "Please try again later.",
+        variant: "destructive",
+      });
+      return false;
+    }
   };
 
   const withdraw = async (amount: number, bankDetails: string): Promise<boolean> => {
+    if (!user) {
+      toast({
+        title: "Not logged in",
+        description: "Please log in to make a withdrawal",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     if (amount > balance) {
       toast({
         title: "Insufficient Balance",
@@ -52,58 +195,37 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       });
       return false;
     }
-    
-    // Mock withdrawal request
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    const newTransaction: Transaction = {
-      id: `t_${Date.now()}`,
-      userId: 'user_1',
-      type: 'withdrawal',
-      amount: -amount,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-      reference: `Bank: ${bankDetails}`,
-    };
-    
-    setTransactions(prev => [newTransaction, ...prev]);
-    
-    toast({
-      title: "Withdrawal Requested",
-      description: `${formatCurrency(amount)} withdrawal is pending approval.`,
-    });
-    
-    return true;
-  };
 
-  const placeBet = (amount: number): boolean => {
-    if (amount > balance) {
+    try {
+      // Create transaction record
+      const { error: txError } = await supabase
+        .from('transactions')
+        .insert({
+          user_id: user.id,
+          type: 'withdrawal',
+          amount: amount,
+          status: 'pending',
+          bank_details: bankDetails,
+          reference: `WD${Date.now()}`,
+        });
+
+      if (txError) throw txError;
+
       toast({
-        title: "Insufficient Balance",
-        description: "You don't have enough balance for this bet.",
+        title: "Withdrawal Requested",
+        description: `₹${amount} withdrawal is pending approval.`,
+      });
+
+      return true;
+    } catch (error) {
+      console.error('Withdrawal error:', error);
+      toast({
+        title: "Withdrawal Failed",
+        description: "Please try again later.",
         variant: "destructive",
       });
       return false;
     }
-    
-    setBalance(prev => prev - amount);
-    return true;
-  };
-
-  const addWinnings = (amount: number) => {
-    setBalance(prev => prev + amount);
-    
-    const newTransaction: Transaction = {
-      id: `t_${Date.now()}`,
-      userId: 'user_1',
-      type: 'win',
-      amount,
-      status: 'completed',
-      createdAt: new Date().toISOString(),
-      reference: `Game Winnings`,
-    };
-    
-    setTransactions(prev => [newTransaction, ...prev]);
   };
 
   return (
@@ -111,10 +233,11 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       value={{
         balance,
         transactions,
+        isLoading,
         deposit,
         withdraw,
-        placeBet,
-        addWinnings,
+        refetchBalance: fetchBalance,
+        refetchTransactions: fetchTransactions,
       }}
     >
       {children}

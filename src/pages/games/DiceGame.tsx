@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
+import { useGameRounds, GameType } from '@/hooks/useGameRounds';
+import { useBets } from '@/hooks/useBets';
 import { formatCurrency } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,13 +34,17 @@ const diceColors = [
 export default function DiceGame() {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useAuth();
-  const { balance, placeBet, addWinnings } = useWallet();
+  const { balance, refetchBalance } = useWallet();
+  const { placeBet, isPlacingBet, clearCurrentBet, fetchBetForRound } = useBets();
+
+  const gameType: GameType = 'dice';
+  const { currentRound, recentResults } = useGameRounds({ gameType, durationMinutes: 1 });
 
   const [timeLeft, setTimeLeft] = useState(60);
   const [isLocked, setIsLocked] = useState(false);
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const [betAmount, setBetAmount] = useState(100);
-  const [currentBet, setCurrentBet] = useState<{ number: number; amount: number } | null>(null);
+  const [localBet, setLocalBet] = useState<{ number: number; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [roundNumber, setRoundNumber] = useState(7001);
@@ -50,6 +56,13 @@ export default function DiceGame() {
       navigate('/auth');
     }
   }, [isAuthenticated, isLoading, navigate]);
+
+  useEffect(() => {
+    if (currentRound) {
+      setRoundNumber(currentRound.round_number);
+      fetchBetForRound(currentRound.id);
+    }
+  }, [currentRound, fetchBetForRound]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -64,13 +77,12 @@ export default function DiceGame() {
             setIsRolling(false);
             setResultHistory(h => [result, ...h].slice(0, 10));
 
-            if (currentBet) {
-              if (currentBet.number === result) {
-                const winAmount = currentBet.amount * 5.5;
-                addWinnings(winAmount);
+            if (localBet) {
+              if (localBet.number === result) {
+                const winAmount = localBet.amount * 5.5;
                 toast({
                   title: "🎯 Perfect Hit!",
-                  description: `Dice landed on ${result}! You won ${formatCurrency(winAmount)}`,
+                  description: `Dice landed on ${result}! You won ₹${winAmount}`,
                 });
               } else {
                 toast({
@@ -79,11 +91,13 @@ export default function DiceGame() {
                   variant: "destructive",
                 });
               }
+              refetchBalance();
             }
 
             setTimeout(() => {
               setShowResult(false);
-              setCurrentBet(null);
+              setLocalBet(null);
+              clearCurrentBet();
               setSelectedNumber(null);
               setIsLocked(false);
               setRoundNumber(prev => prev + 1);
@@ -103,19 +117,35 @@ export default function DiceGame() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [currentBet, isLocked, addWinnings]);
+  }, [localBet, isLocked, refetchBalance, clearCurrentBet]);
 
   const handleBetAmountChange = (delta: number) => {
     setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));
   };
 
-  const handlePlaceBet = useCallback(() => {
-    if (selectedNumber === null || isLocked || currentBet) return;
-    if (placeBet(betAmount)) {
-      setCurrentBet({ number: selectedNumber, amount: betAmount });
-      toast({ title: "Bet Placed!", description: `${formatCurrency(betAmount)} on ${selectedNumber}` });
+  const handlePlaceBet = useCallback(async () => {
+    if (selectedNumber === null || isLocked || localBet || isPlacingBet) return;
+    
+    if (betAmount > balance) {
+      toast({
+        title: "Insufficient Balance",
+        description: "You don't have enough balance for this bet.",
+        variant: "destructive",
+      });
+      return;
     }
-  }, [selectedNumber, isLocked, currentBet, betAmount, placeBet]);
+
+    if (currentRound) {
+      const bet = await placeBet(currentRound.id, selectedNumber.toString(), betAmount);
+      if (bet) {
+        setLocalBet({ number: selectedNumber, amount: betAmount });
+        refetchBalance();
+      }
+    } else {
+      setLocalBet({ number: selectedNumber, amount: betAmount });
+      toast({ title: "Bet Placed!", description: `₹${betAmount} on ${selectedNumber}` });
+    }
+  }, [selectedNumber, isLocked, localBet, isPlacingBet, betAmount, balance, currentRound, placeBet, refetchBalance]);
 
   const presetAmounts = [50, 100, 200, 500, 1000];
 
@@ -234,19 +264,19 @@ export default function DiceGame() {
                   key={num}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => !isLocked && !currentBet && setSelectedNumber(num)}
-                  disabled={isLocked || !!currentBet}
+                  onClick={() => !isLocked && !localBet && setSelectedNumber(num)}
+                  disabled={isLocked || !!localBet}
                   className={`relative h-24 rounded-2xl bg-gradient-to-br ${diceColors[num - 1]} transition-all overflow-hidden ${
                     selectedNumber === num 
                       ? 'ring-4 ring-white scale-105 shadow-lg' 
                       : 'opacity-75 hover:opacity-100'
-                  } ${(isLocked || currentBet) ? 'cursor-not-allowed opacity-50' : ''}`}
+                  } ${(isLocked || localBet) ? 'cursor-not-allowed opacity-50' : ''}`}
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
                   <div className="absolute inset-0 flex items-center justify-center">
                     <span className="text-5xl">{diceEmojis[num - 1]}</span>
                   </div>
-                  {currentBet?.number === num && (
+                  {localBet?.number === num && (
                     <motion.div 
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -268,31 +298,33 @@ export default function DiceGame() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-center gap-4">
-              <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(-50)} disabled={isLocked || !!currentBet || betAmount <= 10} className="w-14 h-14 rounded-full">
+              <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(-50)} disabled={isLocked || !!localBet || betAmount <= 10} className="w-14 h-14 rounded-full">
                 <Minus className="w-6 h-6" />
               </Button>
               <div className="text-4xl font-bold w-36 text-center">{formatCurrency(betAmount)}</div>
-              <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(50)} disabled={isLocked || !!currentBet || betAmount >= balance} className="w-14 h-14 rounded-full">
+              <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(50)} disabled={isLocked || !!localBet || betAmount >= balance} className="w-14 h-14 rounded-full">
                 <Plus className="w-6 h-6" />
               </Button>
             </div>
             <div className="flex flex-wrap justify-center gap-2">
               {presetAmounts.map((amount) => (
-                <Button key={amount} variant={betAmount === amount ? "default" : "outline"} size="sm" onClick={() => !isLocked && !currentBet && setBetAmount(Math.min(amount, balance))} disabled={isLocked || !!currentBet}>
+                <Button key={amount} variant={betAmount === amount ? "default" : "outline"} size="sm" onClick={() => !isLocked && !localBet && setBetAmount(Math.min(amount, balance))} disabled={isLocked || !!localBet}>
                   {formatCurrency(amount)}
                 </Button>
               ))}
             </div>
             <Button 
               onClick={handlePlaceBet} 
-              disabled={selectedNumber === null || isLocked || !!currentBet || betAmount > balance} 
+              disabled={selectedNumber === null || isLocked || !!localBet || betAmount > balance || isPlacingBet} 
               className="w-full h-16 text-xl font-bold bg-gradient-to-r from-purple-500 to-pink-500 hover:opacity-90 text-white"
             >
-              {currentBet 
-                ? `✓ ${formatCurrency(currentBet.amount)} on ${currentBet.number}` 
-                : selectedNumber !== null 
-                  ? `Place Bet - ${formatCurrency(betAmount)}` 
-                  : 'Pick a Number'}
+              {isPlacingBet
+                ? 'Placing Bet...'
+                : localBet 
+                  ? `✓ ${formatCurrency(localBet.amount)} on ${localBet.number}` 
+                  : selectedNumber !== null 
+                    ? `Place Bet - ${formatCurrency(betAmount)}` 
+                    : 'Pick a Number'}
             </Button>
           </CardContent>
         </Card>

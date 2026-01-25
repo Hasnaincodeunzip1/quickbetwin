@@ -3,6 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
+import { useGameRounds, GameType } from '@/hooks/useGameRounds';
+import { useBets } from '@/hooks/useBets';
 import { formatCurrency } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,7 +46,11 @@ const symbolNames: Record<SpinSymbol, string> = {
 export default function SpinGame() {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useAuth();
-  const { balance, placeBet, addWinnings } = useWallet();
+  const { balance, refetchBalance } = useWallet();
+  const { placeBet: placeBetAPI, isPlacingBet } = useBets();
+
+  const gameType: GameType = 'spin';
+  const { currentRound } = useGameRounds({ gameType, durationMinutes: 1 });
 
   const [betAmount, setBetAmount] = useState(100);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -63,10 +69,23 @@ export default function SpinGame() {
     setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));
   };
 
-  const spin = useCallback(() => {
-    if (isSpinning || betAmount > balance) return;
+  const spin = useCallback(async () => {
+    if (isSpinning || betAmount > balance || isPlacingBet) return;
     
-    if (!placeBet(betAmount)) return;
+    if (betAmount > balance) {
+      toast({
+        title: "Insufficient Balance",
+        description: "You don't have enough balance for this bet.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Place bet in database if round exists
+    if (currentRound) {
+      const bet = await placeBetAPI(currentRound.id, 'spin', betAmount);
+      if (!bet) return;
+    }
     
     setIsSpinning(true);
     setShowResult(false);
@@ -101,19 +120,17 @@ export default function SpinGame() {
         if (allMatch) {
           const winSymbol = finalReels[0];
           winAmount = betAmount * multipliers[winSymbol];
-          addWinnings(winAmount);
           setLastWin({ amount: winAmount, symbol: winSymbol });
           toast({
             title: "🎰 JACKPOT!",
-            description: `Triple ${symbolNames[winSymbol]}! You won ${formatCurrency(winAmount)}`,
+            description: `Triple ${symbolNames[winSymbol]}! You won ₹${winAmount}`,
           });
         } else if (twoMatch) {
           winAmount = betAmount * 1.5;
-          addWinnings(winAmount);
           setLastWin({ amount: winAmount, symbol: finalReels[0] });
           toast({
             title: "🎰 Two of a Kind!",
-            description: `You won ${formatCurrency(winAmount)}`,
+            description: `You won ₹${winAmount}`,
           });
         } else {
           toast({
@@ -126,9 +143,10 @@ export default function SpinGame() {
         setResultHistory(h => [{ reels: finalReels, won: allMatch || twoMatch, amount: winAmount }, ...h].slice(0, 10));
         setShowResult(true);
         setIsSpinning(false);
+        refetchBalance();
       }
     }, 80);
-  }, [isSpinning, betAmount, balance, placeBet, addWinnings]);
+  }, [isSpinning, betAmount, balance, isPlacingBet, currentRound, placeBetAPI, refetchBalance]);
 
   const presetAmounts = [50, 100, 200, 500, 1000];
 
@@ -260,7 +278,7 @@ export default function SpinGame() {
             </div>
             <Button 
               onClick={spin} 
-              disabled={isSpinning || betAmount > balance} 
+              disabled={isSpinning || betAmount > balance || isPlacingBet} 
               className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-rose-500 via-red-500 to-orange-500 hover:opacity-90 text-white shadow-lg relative overflow-hidden"
             >
               <motion.div
