@@ -93,7 +93,7 @@ export default {
   					boxShadow: '0 0 40px hsl(var(--primary) / 0.8)'
   				}
   			},
-  			'countdown': {
+  			countdown: {
   				'0%': {
   					transform: 'scale(1)'
   				},
@@ -127,13 +127,13 @@ export default {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
   			'pulse-glow': 'pulse-glow 2s ease-in-out infinite',
-  			'countdown': 'countdown 1s ease-in-out infinite',
+  			countdown: 'countdown 1s ease-in-out infinite',
   			'slide-up': 'slide-up 0.3s ease-out',
   			'fade-in': 'fade-in 0.3s ease-out'
   		},
   		fontFamily: {
   			sans: [
-  				'Space Grotesk',
+  				'Work Sans',
   				'ui-sans-serif',
   				'system-ui',
   				'-apple-system',
@@ -155,7 +155,7 @@ export default {
   				'serif'
   			],
   			mono: [
-  				'Space Mono',
+  				'Inconsolata',
   				'ui-monospace',
   				'SFMono-Regular',
   				'Menlo',
