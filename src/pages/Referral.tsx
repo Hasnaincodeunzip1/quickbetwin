@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { formatCurrency, mockReferrals, mockAllUsers } from '@/lib/mockData';
+import { useReferrals } from '@/hooks/useReferrals';
+import { formatCurrency } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -20,39 +21,31 @@ import {
   Star,
   Sparkles,
   CheckCircle2,
-  Crown
+  Crown,
+  Loader2
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 // Lottery ticket milestones - users get tickets at these referral counts
 const LOTTERY_MILESTONES = [3, 5, 7, 10, 15, 20, 30, 50];
 
-// Mock lottery tickets for demo
-const mockLotteryTickets = [
-  { id: 'LT001', earnedAt: 3, status: 'active', prize: '₹5,000 Jackpot' },
-  { id: 'LT002', earnedAt: 5, status: 'active', prize: '₹10,000 Jackpot' },
-];
-
 export default function Referral() {
   const navigate = useNavigate();
-  const { isAuthenticated, profile, isLoading } = useAuth();
+  const { isAuthenticated, profile, isLoading: authLoading } = useAuth();
+  const { referrals, lotteryTickets, totalReferrals, totalEarned, isLoading: referralsLoading } = useReferrals();
   const [showLotteryModal, setShowLotteryModal] = useState(false);
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       navigate('/auth');
     }
-  }, [isAuthenticated, isLoading, navigate]);
+  }, [isAuthenticated, authLoading, navigate]);
 
   const referralCode = profile?.referral_code || 'LOADING...';
   const referralLink = `https://colorwin.app/ref/${referralCode}`;
   
-  // Get referral stats
-  const totalReferrals = mockReferrals.length;
-  const totalEarned = mockReferrals.reduce((sum, r) => sum + r.bonus, 0);
-  
-  // Calculate lottery tickets earned
-  const ticketsEarned = LOTTERY_MILESTONES.filter(m => totalReferrals >= m).length;
+  // Calculate lottery tickets earned based on milestones
+  const ticketsEarned = lotteryTickets.length;
   const nextMilestone = LOTTERY_MILESTONES.find(m => totalReferrals < m) || LOTTERY_MILESTONES[LOTTERY_MILESTONES.length - 1];
   const progressToNext = totalReferrals >= nextMilestone ? 100 : (totalReferrals / nextMilestone) * 100;
   const referralsNeeded = Math.max(0, nextMilestone - totalReferrals);
@@ -81,10 +74,7 @@ export default function Referral() {
     }
   };
 
-  const getReferredUserName = (userId: string) => {
-    const foundUser = mockAllUsers.find(u => u.id === userId);
-    return foundUser?.name || 'User';
-  };
+  const isLoading = authLoading || referralsLoading;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -264,9 +254,13 @@ export default function Referral() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {mockReferrals.length > 0 ? (
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : referrals.length > 0 ? (
               <div className="space-y-3">
-                {mockReferrals.map((referral, index) => (
+                {referrals.map((referral, index) => (
                   <motion.div
                     key={referral.id}
                     initial={{ opacity: 0, x: -20 }}
@@ -276,17 +270,17 @@ export default function Referral() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-sm font-bold">
-                        {getReferredUserName(referral.referredUserId).charAt(0)}
+                        {(referral.referred_name || 'U').charAt(0)}
                       </div>
                       <div>
-                        <p className="font-medium">{getReferredUserName(referral.referredUserId)}</p>
+                        <p className="font-medium">{referral.referred_name || 'User'}</p>
                         <p className="text-xs text-muted-foreground">
-                          {new Date(referral.createdAt).toLocaleDateString()}
+                          {new Date(referral.created_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-game-green">+{formatCurrency(referral.bonus)}</p>
+                      <p className="font-bold text-game-green">+{formatCurrency(Number(referral.bonus))}</p>
                       <p className="text-xs text-muted-foreground">Bonus</p>
                     </div>
                   </motion.div>
@@ -358,23 +352,29 @@ export default function Referral() {
                 <p className="text-white/80 text-sm">Next draw: Coming Soon!</p>
               </div>
               <div className="p-4 space-y-3 max-h-64 overflow-y-auto">
-                {mockLotteryTickets.map((ticket) => (
-                  <div key={ticket.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg border border-yellow-500/20">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
-                        <Star className="w-5 h-5 text-white" />
+                {lotteryTickets.length > 0 ? (
+                  lotteryTickets.map((ticket) => (
+                    <div key={ticket.id} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg border border-yellow-500/20">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-yellow-400 to-orange-500 flex items-center justify-center">
+                          <Star className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="font-mono font-bold text-sm">{ticket.ticket_number}</p>
+                          <p className="text-xs text-muted-foreground">Earned at {ticket.earned_at_referral_count} referrals</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-mono font-bold text-sm">{ticket.id}</p>
-                        <p className="text-xs text-muted-foreground">Earned at {ticket.earnedAt} referrals</p>
+                      <div className="text-right">
+                        <p className="text-xs font-medium text-yellow-500">Jackpot Entry</p>
+                        <p className="text-xs text-game-green">{ticket.is_used ? 'Used' : 'Active'}</p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs font-medium text-yellow-500">{ticket.prize}</p>
-                      <p className="text-xs text-game-green">{ticket.status}</p>
-                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-muted-foreground text-sm">
+                    No lottery tickets yet. Keep referring!
                   </div>
-                ))}
+                )}
               </div>
               <div className="p-4 border-t border-border">
                 <Button 
