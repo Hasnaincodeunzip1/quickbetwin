@@ -93,9 +93,15 @@ export default function Auth() {
       });
       navigate('/dashboard');
     } else {
+      // Provide more helpful error messages
+      let errorMessage = result.error || "Could not create account.";
+      if (result.error?.includes("already registered")) {
+        errorMessage = "This email is already registered. Please login instead.";
+        setAuthMode('login');
+      }
       toast({ 
         title: "Signup Failed", 
-        description: result.error || "Could not create account.", 
+        description: errorMessage, 
         variant: "destructive" 
       });
     }
