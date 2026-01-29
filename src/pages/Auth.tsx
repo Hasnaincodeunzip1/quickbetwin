@@ -2,19 +2,20 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, User } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, User, ArrowLeft } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 export default function Auth() {
   const navigate = useNavigate();
   const { login, signup, isAuthenticated } = useAuth();
   
-  const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
+  const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>('login');
   
   // Form state
   const [email, setEmail] = useState('');
@@ -22,6 +23,7 @@ export default function Auth() {
   const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   // Redirect if already authenticated
   if (isAuthenticated) {
@@ -107,6 +109,41 @@ export default function Auth() {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!email) {
+      toast({
+        title: "Missing Email",
+        description: "Please enter your email address.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+
+    setLoading(false);
+
+    if (error) {
+      toast({
+        title: "Reset Failed",
+        description: error.message,
+        variant: "destructive"
+      });
+    } else {
+      setResetEmailSent(true);
+      toast({
+        title: "Check Your Email",
+        description: "We've sent you a password reset link."
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       {/* Background decoration */}
@@ -131,19 +168,86 @@ export default function Auth() {
 
         <Card className="game-card border-0">
           <CardHeader className="text-center pb-4">
-            <CardTitle className="text-xl">
-              {authMode === 'login' ? 'Welcome Back' : 'Create Account'}
-            </CardTitle>
-            <CardDescription>
-              {authMode === 'login' 
-                ? 'Sign in to continue playing' 
-                : 'Join thousands of winners today'}
-            </CardDescription>
-          </CardHeader>
-          
-          <CardContent className="space-y-4">
-            {/* Auth Mode Toggle */}
-            <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as 'login' | 'signup')}>
+          <CardTitle className="text-xl">
+            {authMode === 'login' ? 'Welcome Back' : authMode === 'signup' ? 'Create Account' : 'Reset Password'}
+          </CardTitle>
+          <CardDescription>
+            {authMode === 'login' 
+              ? 'Sign in to continue playing' 
+              : authMode === 'signup'
+              ? 'Join thousands of winners today'
+              : 'Enter your email to reset your password'}
+          </CardDescription>
+        </CardHeader>
+        
+        <CardContent className="space-y-4">
+          {authMode === 'forgot' ? (
+            resetEmailSent ? (
+              <div className="text-center py-6">
+                <Mail className="w-12 h-12 text-primary mx-auto mb-4" />
+                <h3 className="font-semibold mb-2">Check Your Email</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  We've sent a password reset link to <strong>{email}</strong>
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setAuthMode('login');
+                    setResetEmailSent(false);
+                  }}
+                  className="mt-2"
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Login
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email Address</Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="reset-email"
+                      type="email"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="pl-10 bg-secondary border-border"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground glow-primary"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <>
+                      Send Reset Link
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full"
+                  onClick={() => setAuthMode('login')}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Login
+                </Button>
+              </form>
+            )
+          ) : (
+            <>
+            <Tabs value={authMode} onValueChange={(v) => setAuthMode(v as 'login' | 'signup' | 'forgot')}>
               <TabsList className="grid w-full grid-cols-2 bg-secondary">
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -189,6 +293,16 @@ export default function Auth() {
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+                  </div>
+
+                  <div className="text-right">
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode('forgot')}
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Forgot password?
+                    </button>
                   </div>
 
                   <Button 
@@ -290,6 +404,8 @@ export default function Auth() {
                 By signing up, you agree to our Terms of Service and Privacy Policy
               </p>
             </div>
+          </>
+          )}
           </CardContent>
         </Card>
 
