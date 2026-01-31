@@ -12,16 +12,27 @@ interface Transaction {
   created_at: string;
   reference: string | null;
   bank_details: string | null;
+  assigned_bank_account_id: string | null;
+}
+
+interface BankAccountForDeposit {
+  id: string;
+  bank_name: string;
+  account_holder_name: string;
+  account_number: string;
+  ifsc_code: string | null;
 }
 
 interface WalletContextType {
   balance: number;
   transactions: Transaction[];
   isLoading: boolean;
+  depositBankAccount: BankAccountForDeposit | null;
   deposit: (amount: number) => Promise<boolean>;
   withdraw: (amount: number, bankDetails: string) => Promise<boolean>;
   refetchBalance: () => Promise<void>;
   refetchTransactions: () => Promise<void>;
+  refetchDepositAccount: () => Promise<void>;
 }
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
@@ -29,6 +40,7 @@ const WalletContext = createContext<WalletContextType | undefined>(undefined);
 export function WalletProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [depositBankAccount, setDepositBankAccount] = useState<BankAccountForDeposit | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
@@ -84,6 +96,30 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
+  // Fetch bank account with least transactions (for deposits)
+  const fetchDepositAccount = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('admin_bank_accounts')
+        .select('id, bank_name, account_holder_name, account_number, ifsc_code, total_transactions')
+        .eq('is_active', true)
+        .order('total_transactions', { ascending: true })
+        .limit(1)
+        .single();
+
+      if (error) {
+        console.error('Error fetching deposit account:', error);
+        setDepositBankAccount(null);
+        return;
+      }
+
+      setDepositBankAccount(data);
+    } catch (error) {
+      console.error('Error fetching deposit account:', error);
+      setDepositBankAccount(null);
+    }
+  }, []);
+
   // Subscribe to wallet and transaction changes
   useEffect(() => {
     if (!user) {
@@ -95,6 +131,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
 
     fetchBalance();
     fetchTransactions();
+    fetchDepositAccount();
 
     const walletChannel = supabase
       .channel(`wallet_${user.id}`)
@@ -134,7 +171,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       supabase.removeChannel(walletChannel);
       supabase.removeChannel(transactionChannel);
     };
-  }, [user, fetchBalance, fetchTransactions]);
+  }, [user, fetchBalance, fetchTransactions, fetchDepositAccount]);
 
   const deposit = async (amount: number): Promise<boolean> => {
     if (!user) {
@@ -146,8 +183,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
+    if (!depositBankAccount) {
+      toast({
+        title: "No Bank Account Available",
+        description: "Please contact support for deposit instructions",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     try {
-      // Create transaction record
+      // Create transaction record with assigned bank account
       const { error: txError } = await supabase
         .from('transactions')
         .insert({
@@ -156,15 +202,22 @@ export function WalletProvider({ children }: { children: ReactNode }) {
           amount: amount,
           status: 'pending',
           reference: `DEP${Date.now()}`,
+          assigned_bank_account_id: depositBankAccount.id,
         });
 
       if (txError) throw txError;
 
+      // Increment the transaction count on the bank account
+      await supabase.rpc('increment_bank_transactions', { account_id: depositBankAccount.id });
+
       toast({
         title: "Deposit Requested",
-        description: `₹${amount} deposit is pending approval.`,
+        description: `₹${amount} deposit is pending approval. Please transfer to ${depositBankAccount.bank_name} - ${depositBankAccount.account_number}`,
       });
 
+      // Refetch to get next deposit account
+      fetchDepositAccount();
+      
       return true;
     } catch (error) {
       console.error('Deposit error:', error);
@@ -234,10 +287,12 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         balance,
         transactions,
         isLoading,
+        depositBankAccount,
         deposit,
         withdraw,
         refetchBalance: fetchBalance,
         refetchTransactions: fetchTransactions,
+        refetchDepositAccount: fetchDepositAccount,
       }}
     >
       {children}
