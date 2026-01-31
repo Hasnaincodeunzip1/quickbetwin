@@ -56,6 +56,39 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_upi_accounts: {
+        Row: {
+          created_at: string
+          holder_name: string
+          id: string
+          is_active: boolean
+          qr_code_url: string | null
+          total_transactions: number
+          updated_at: string
+          upi_id: string
+        }
+        Insert: {
+          created_at?: string
+          holder_name: string
+          id?: string
+          is_active?: boolean
+          qr_code_url?: string | null
+          total_transactions?: number
+          updated_at?: string
+          upi_id: string
+        }
+        Update: {
+          created_at?: string
+          holder_name?: string
+          id?: string
+          is_active?: boolean
+          qr_code_url?: string | null
+          total_transactions?: number
+          updated_at?: string
+          upi_id?: string
+        }
+        Relationships: []
+      }
       bets: {
         Row: {
           amount: number
@@ -230,6 +263,7 @@ export type Database = {
         Row: {
           amount: number
           assigned_bank_account_id: string | null
+          assigned_upi_account_id: string | null
           bank_details: string | null
           created_at: string
           id: string
@@ -241,6 +275,7 @@ export type Database = {
         Insert: {
           amount: number
           assigned_bank_account_id?: string | null
+          assigned_upi_account_id?: string | null
           bank_details?: string | null
           created_at?: string
           id?: string
@@ -252,6 +287,7 @@ export type Database = {
         Update: {
           amount?: number
           assigned_bank_account_id?: string | null
+          assigned_upi_account_id?: string | null
           bank_details?: string | null
           created_at?: string
           id?: string
@@ -266,6 +302,13 @@ export type Database = {
             columns: ["assigned_bank_account_id"]
             isOneToOne: false
             referencedRelation: "admin_bank_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_assigned_upi_account_id_fkey"
+            columns: ["assigned_upi_account_id"]
+            isOneToOne: false
+            referencedRelation: "admin_upi_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -337,6 +380,10 @@ export type Database = {
         Returns: undefined
       }
       increment_bank_transactions: {
+        Args: { account_id: string }
+        Returns: undefined
+      }
+      increment_upi_transactions: {
         Args: { account_id: string }
         Returns: undefined
       }

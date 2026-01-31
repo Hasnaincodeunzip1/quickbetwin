@@ -25,6 +25,7 @@ import AdminUsers from "./pages/admin/AdminUsers";
 import AdminWithdrawals from "./pages/admin/AdminWithdrawals";
 import AdminGameControl from "./pages/admin/AdminGameControl";
 import AdminBankAccounts from "./pages/admin/AdminBankAccounts";
+import AdminUPIAccounts from "./pages/admin/AdminUPIAccounts";
 
 const queryClient = new QueryClient();
 
@@ -55,12 +56,13 @@ const App = () => (
               <Route path="/history" element={<History />} />
               <Route path="/referral" element={<Referral />} />
               
-              {/* Admin Routes */}
+{/* Admin Routes */}
               <Route path="/admin" element={<AdminLayout />}>
                 <Route index element={<AdminDashboard />} />
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="withdrawals" element={<AdminWithdrawals />} />
                 <Route path="bank-accounts" element={<AdminBankAccounts />} />
+                <Route path="upi-accounts" element={<AdminUPIAccounts />} />
                 <Route path="game-control" element={<AdminGameControl />} />
               </Route>
               

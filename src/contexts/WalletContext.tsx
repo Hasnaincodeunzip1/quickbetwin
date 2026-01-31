@@ -13,6 +13,7 @@ interface Transaction {
   reference: string | null;
   bank_details: string | null;
   assigned_bank_account_id: string | null;
+  assigned_upi_account_id: string | null;
 }
 
 interface BankAccountForDeposit {
@@ -23,12 +24,20 @@ interface BankAccountForDeposit {
   ifsc_code: string | null;
 }
 
+interface UPIAccountForDeposit {
+  id: string;
+  upi_id: string;
+  holder_name: string;
+  qr_code_url: string | null;
+}
+
 interface WalletContextType {
   balance: number;
   transactions: Transaction[];
   isLoading: boolean;
   depositBankAccount: BankAccountForDeposit | null;
-  deposit: (amount: number) => Promise<boolean>;
+  depositUPIAccount: UPIAccountForDeposit | null;
+  deposit: (amount: number, method: 'bank' | 'upi') => Promise<boolean>;
   withdraw: (amount: number, bankDetails: string) => Promise<boolean>;
   refetchBalance: () => Promise<void>;
   refetchTransactions: () => Promise<void>;
@@ -41,6 +50,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [depositBankAccount, setDepositBankAccount] = useState<BankAccountForDeposit | null>(null);
+  const [depositUPIAccount, setDepositUPIAccount] = useState<UPIAccountForDeposit | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
 
@@ -99,24 +109,37 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   // Fetch bank account with least transactions (for deposits)
   const fetchDepositAccount = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch bank account
+      const { data: bankData, error: bankError } = await supabase
         .from('admin_bank_accounts')
         .select('id, bank_name, account_holder_name, account_number, ifsc_code, total_transactions')
         .eq('is_active', true)
         .order('total_transactions', { ascending: true })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching deposit account:', error);
-        setDepositBankAccount(null);
-        return;
+      if (bankError) {
+        console.error('Error fetching deposit bank account:', bankError);
       }
+      setDepositBankAccount(bankData);
 
-      setDepositBankAccount(data);
+      // Fetch UPI account
+      const { data: upiData, error: upiError } = await supabase
+        .from('admin_upi_accounts')
+        .select('id, upi_id, holder_name, qr_code_url, total_transactions')
+        .eq('is_active', true)
+        .order('total_transactions', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (upiError) {
+        console.error('Error fetching deposit UPI account:', upiError);
+      }
+      setDepositUPIAccount(upiData);
     } catch (error) {
-      console.error('Error fetching deposit account:', error);
+      console.error('Error fetching deposit accounts:', error);
       setDepositBankAccount(null);
+      setDepositUPIAccount(null);
     }
   }, []);
 
@@ -173,7 +196,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     };
   }, [user, fetchBalance, fetchTransactions, fetchDepositAccount]);
 
-  const deposit = async (amount: number): Promise<boolean> => {
+  const deposit = async (amount: number, method: 'bank' | 'upi' = 'bank'): Promise<boolean> => {
     if (!user) {
       toast({
         title: "Not logged in",
@@ -183,7 +206,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
-    if (!depositBankAccount) {
+    if (method === 'bank' && !depositBankAccount) {
       toast({
         title: "No Bank Account Available",
         description: "Please contact support for deposit instructions",
@@ -192,28 +215,59 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       return false;
     }
 
+    if (method === 'upi' && !depositUPIAccount) {
+      toast({
+        title: "No UPI Account Available",
+        description: "Please contact support for deposit instructions",
+        variant: "destructive",
+      });
+      return false;
+    }
+
     try {
-      // Create transaction record with assigned bank account
+      // Create transaction record with assigned account based on method
+      const transactionData: {
+        user_id: string;
+        type: string;
+        amount: number;
+        status: string;
+        reference: string;
+        assigned_bank_account_id?: string;
+        assigned_upi_account_id?: string;
+      } = {
+        user_id: user.id,
+        type: 'deposit',
+        amount: amount,
+        status: 'pending',
+        reference: `DEP${Date.now()}`,
+      };
+
+      if (method === 'bank' && depositBankAccount) {
+        transactionData.assigned_bank_account_id = depositBankAccount.id;
+      } else if (method === 'upi' && depositUPIAccount) {
+        transactionData.assigned_upi_account_id = depositUPIAccount.id;
+      }
+
       const { error: txError } = await supabase
         .from('transactions')
-        .insert({
-          user_id: user.id,
-          type: 'deposit',
-          amount: amount,
-          status: 'pending',
-          reference: `DEP${Date.now()}`,
-          assigned_bank_account_id: depositBankAccount.id,
-        });
+        .insert(transactionData);
 
       if (txError) throw txError;
 
-      // Increment the transaction count on the bank account
-      await supabase.rpc('increment_bank_transactions', { account_id: depositBankAccount.id });
-
-      toast({
-        title: "Deposit Requested",
-        description: `₹${amount} deposit is pending approval. Please transfer to ${depositBankAccount.bank_name} - ${depositBankAccount.account_number}`,
-      });
+      // Increment the transaction count on the respective account
+      if (method === 'bank' && depositBankAccount) {
+        await supabase.rpc('increment_bank_transactions', { account_id: depositBankAccount.id });
+        toast({
+          title: "Deposit Requested",
+          description: `₹${amount} deposit is pending approval. Please transfer to ${depositBankAccount.bank_name} - ${depositBankAccount.account_number}`,
+        });
+      } else if (method === 'upi' && depositUPIAccount) {
+        await supabase.rpc('increment_upi_transactions', { account_id: depositUPIAccount.id });
+        toast({
+          title: "Deposit Requested",
+          description: `₹${amount} deposit is pending approval. Please transfer to UPI ID: ${depositUPIAccount.upi_id}`,
+        });
+      }
 
       // Refetch to get next deposit account
       fetchDepositAccount();
@@ -288,6 +342,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         transactions,
         isLoading,
         depositBankAccount,
+        depositUPIAccount,
         deposit,
         withdraw,
         refetchBalance: fetchBalance,
