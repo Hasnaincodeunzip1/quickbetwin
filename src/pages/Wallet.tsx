@@ -20,7 +20,9 @@ import {
   Loader2,
   CheckCircle,
   Clock,
-  XCircle
+  XCircle,
+  Landmark,
+  Smartphone
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -28,11 +30,12 @@ export default function Wallet() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated, isLoading } = useAuth();
-  const { balance, transactions, deposit, withdraw, depositBankAccount } = useWallet();
+  const { balance, transactions, deposit, withdraw, depositBankAccount, depositUPIAccount } = useWallet();
 
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw' | 'history'>(
     (searchParams.get('action') as 'deposit' | 'withdraw') || 'deposit'
   );
+  const [depositMethod, setDepositMethod] = useState<'bank' | 'upi'>('bank');
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [bankDetails, setBankDetails] = useState('');
@@ -56,8 +59,7 @@ export default function Wallet() {
     }
 
     setLoading(true);
-    // Simulate Razorpay payment flow
-    await deposit(amount);
+    await deposit(amount, depositMethod);
     setLoading(false);
     setDepositAmount('');
   };
@@ -161,10 +163,30 @@ export default function Wallet() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Deposit Tab */}
+{/* Deposit Tab */}
           <TabsContent value="deposit" className="mt-4 space-y-4">
+            {/* Deposit Method Selection */}
+            <div className="flex gap-2">
+              <Button
+                variant={depositMethod === 'bank' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setDepositMethod('bank')}
+              >
+                <Landmark className="w-4 h-4 mr-2" />
+                Bank Transfer
+              </Button>
+              <Button
+                variant={depositMethod === 'upi' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setDepositMethod('upi')}
+              >
+                <Smartphone className="w-4 h-4 mr-2" />
+                UPI
+              </Button>
+            </div>
+
             {/* Bank Account Info */}
-            {depositBankAccount && (
+            {depositMethod === 'bank' && depositBankAccount && (
               <Card className="game-card border-primary/30 bg-primary/5">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
@@ -191,6 +213,54 @@ export default function Wallet() {
                       <span className="font-mono font-medium">{depositBankAccount.ifsc_code}</span>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* UPI Account Info */}
+            {depositMethod === 'upi' && depositUPIAccount && (
+              <Card className="game-card border-primary/30 bg-primary/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-game-green animate-pulse" />
+                    Pay via UPI
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">UPI ID</span>
+                    <span className="font-mono font-medium">{depositUPIAccount.upi_id}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Name</span>
+                    <span className="font-medium">{depositUPIAccount.holder_name}</span>
+                  </div>
+                  {depositUPIAccount.qr_code_url && (
+                    <div className="flex flex-col items-center pt-2">
+                      <p className="text-xs text-muted-foreground mb-2">Scan QR Code to Pay</p>
+                      <img
+                        src={depositUPIAccount.qr_code_url}
+                        alt="UPI QR Code"
+                        className="w-48 h-48 rounded-lg border bg-white p-2"
+                      />
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* No account available message */}
+            {depositMethod === 'bank' && !depositBankAccount && (
+              <Card className="game-card border-destructive/30 bg-destructive/5">
+                <CardContent className="pt-6 text-center">
+                  <p className="text-muted-foreground">No bank account available for deposits. Please contact support.</p>
+                </CardContent>
+              </Card>
+            )}
+            {depositMethod === 'upi' && !depositUPIAccount && (
+              <Card className="game-card border-destructive/30 bg-destructive/5">
+                <CardContent className="pt-6 text-center">
+                  <p className="text-muted-foreground">No UPI account available for deposits. Please contact support.</p>
                 </CardContent>
               </Card>
             )}
@@ -227,7 +297,7 @@ export default function Wallet() {
 
                 <Button
                   onClick={handleDeposit}
-                  disabled={loading || !depositAmount || !depositBankAccount}
+                  disabled={loading || !depositAmount || (depositMethod === 'bank' ? !depositBankAccount : !depositUPIAccount)}
                   className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground glow-primary"
                 >
                   {loading ? (
@@ -241,7 +311,9 @@ export default function Wallet() {
                 </Button>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  Transfer to the account above and click deposit. Your wallet will be credited after admin approval.
+                  {depositMethod === 'bank' 
+                    ? 'Transfer to the account above and click deposit. Your wallet will be credited after admin approval.'
+                    : 'Pay via UPI and click deposit. Your wallet will be credited after admin approval.'}
                 </p>
               </CardContent>
             </Card>

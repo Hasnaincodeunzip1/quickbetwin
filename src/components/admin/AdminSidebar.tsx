@@ -6,7 +6,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Building2
+  Building2,
+  Smartphone
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ const navItems = [
   { title: "Users", url: "/admin/users", icon: Users },
   { title: "Withdrawals", url: "/admin/withdrawals", icon: Wallet },
   { title: "Bank Accounts", url: "/admin/bank-accounts", icon: Building2 },
+  { title: "UPI Accounts", url: "/admin/upi-accounts", icon: Smartphone },
   { title: "Game Control", url: "/admin/game-control", icon: Gamepad2 },
 ];
 
