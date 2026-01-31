@@ -8,7 +8,8 @@ import {
   Eye,
   Wallet,
   Phone,
-  Calendar
+  Calendar,
+  Loader2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -34,36 +35,51 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { mockAllUsers, formatCurrency, formatDate, User } from "@/lib/mockData";
-import { toast } from "sonner";
+import { useAdminUsers, AdminUser } from "@/hooks/useAdminUsers";
+
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+  }).format(amount);
+};
+
+const formatDate = (dateStr: string) => {
+  return new Date(dateStr).toLocaleDateString('en-IN', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
+};
 
 export default function AdminUsers() {
-  const [users, setUsers] = useState(mockAllUsers);
+  const { users, isLoading, toggleStatus, isToggling } = useAdminUsers();
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<AdminUser | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
   const filteredUsers = users.filter(user => 
-    user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    user.phone.includes(searchQuery) ||
-    user.email?.toLowerCase().includes(searchQuery.toLowerCase())
+    (user.name?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
+    (user.phone || '').includes(searchQuery)
   );
 
-  const handleToggleStatus = (userId: string) => {
-    setUsers(prev => prev.map(user => {
-      if (user.id === userId) {
-        const newStatus = user.status === 'active' ? 'blocked' : 'active';
-        toast.success(`User ${newStatus === 'blocked' ? 'blocked' : 'unblocked'} successfully`);
-        return { ...user, status: newStatus };
-      }
-      return user;
-    }));
+  const handleToggleStatus = (userId: string, currentStatus: 'active' | 'blocked') => {
+    toggleStatus(userId, currentStatus);
   };
 
-  const handleViewDetails = (user: User) => {
+  const handleViewDetails = (user: AdminUser) => {
     setSelectedUser(user);
     setIsDetailOpen(true);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -78,7 +94,7 @@ export default function AdminUsers() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search by name, phone, or email..."
+              placeholder="Search by name or phone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10 bg-secondary border-border"
@@ -110,65 +126,70 @@ export default function AdminUsers() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>
-                      <div>
-                        <p className="font-medium text-foreground">{user.name}</p>
-                        {user.email && (
-                          <p className="text-sm text-muted-foreground">{user.email}</p>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{user.phone}</TableCell>
-                    <TableCell className="font-medium text-primary">
-                      {formatCurrency(user.balance)}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{user.totalBets || 0}</TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant={user.status === 'active' ? 'default' : 'destructive'}
-                        className={user.status === 'active' ? 'bg-game-green/20 text-game-green' : ''}
-                      >
-                        {user.status || 'active'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(user.createdAt)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewDetails(user)}>
-                            <Eye className="w-4 h-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleToggleStatus(user.id)}
-                            className={user.status === 'active' ? 'text-destructive' : 'text-game-green'}
-                          >
-                            {user.status === 'active' ? (
-                              <>
-                                <Ban className="w-4 h-4 mr-2" />
-                                Block User
-                              </>
-                            ) : (
-                              <>
-                                <CheckCircle className="w-4 h-4 mr-2" />
-                                Unblock User
-                              </>
-                            )}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                {filteredUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                      No users found
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredUsers.map((user) => (
+                    <TableRow key={user.id}>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium text-foreground">{user.name || 'Unknown'}</p>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{user.phone || 'N/A'}</TableCell>
+                      <TableCell className="font-medium text-primary">
+                        {formatCurrency(user.balance)}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{user.totalBets}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={user.status === 'active' ? 'default' : 'destructive'}
+                          className={user.status === 'active' ? 'bg-game-green/20 text-game-green' : ''}
+                        >
+                          {user.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(user.createdAt)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" disabled={isToggling}>
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleViewDetails(user)}>
+                              <Eye className="w-4 h-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleToggleStatus(user.id, user.status)}
+                              className={user.status === 'active' ? 'text-destructive' : 'text-game-green'}
+                            >
+                              {user.status === 'active' ? (
+                                <>
+                                  <Ban className="w-4 h-4 mr-2" />
+                                  Block User
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="w-4 h-4 mr-2" />
+                                  Unblock User
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -186,16 +207,16 @@ export default function AdminUsers() {
               <div className="flex items-center gap-4">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
                   <span className="text-2xl font-bold text-primary">
-                    {selectedUser.name.charAt(0)}
+                    {(selectedUser.name || 'U').charAt(0)}
                   </span>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-foreground">{selectedUser.name}</h3>
+                  <h3 className="text-xl font-bold text-foreground">{selectedUser.name || 'Unknown'}</h3>
                   <Badge 
                     variant={selectedUser.status === 'active' ? 'default' : 'destructive'}
                     className={selectedUser.status === 'active' ? 'bg-game-green/20 text-game-green' : ''}
                   >
-                    {selectedUser.status || 'active'}
+                    {selectedUser.status}
                   </Badge>
                 </div>
               </div>
@@ -206,7 +227,7 @@ export default function AdminUsers() {
                     <Phone className="w-4 h-4" />
                     <span className="text-sm">Phone</span>
                   </div>
-                  <p className="font-medium text-foreground">{selectedUser.phone}</p>
+                  <p className="font-medium text-foreground">{selectedUser.phone || 'N/A'}</p>
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-muted-foreground">
@@ -231,19 +252,19 @@ export default function AdminUsers() {
               <div className="grid grid-cols-3 gap-4 p-4 bg-secondary rounded-lg">
                 <div className="text-center">
                   <p className="text-lg font-bold text-game-green">
-                    {formatCurrency(selectedUser.totalDeposits || 0)}
+                    {formatCurrency(selectedUser.totalDeposits)}
                   </p>
                   <p className="text-xs text-muted-foreground">Total Deposits</p>
                 </div>
                 <div className="text-center">
                   <p className="text-lg font-bold text-game-red">
-                    {formatCurrency(selectedUser.totalWithdrawals || 0)}
+                    {formatCurrency(selectedUser.totalWithdrawals)}
                   </p>
                   <p className="text-xs text-muted-foreground">Total Withdrawals</p>
                 </div>
                 <div className="text-center">
                   <p className="text-lg font-bold text-foreground">
-                    {selectedUser.totalBets || 0}
+                    {selectedUser.totalBets}
                   </p>
                   <p className="text-xs text-muted-foreground">Total Bets</p>
                 </div>
@@ -254,9 +275,10 @@ export default function AdminUsers() {
                   className="flex-1"
                   variant={selectedUser.status === 'active' ? 'destructive' : 'default'}
                   onClick={() => {
-                    handleToggleStatus(selectedUser.id);
+                    handleToggleStatus(selectedUser.id, selectedUser.status);
                     setIsDetailOpen(false);
                   }}
+                  disabled={isToggling}
                 >
                   {selectedUser.status === 'active' ? (
                     <>
