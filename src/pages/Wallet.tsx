@@ -36,9 +36,16 @@ export default function Wallet() {
     (searchParams.get('action') as 'deposit' | 'withdraw') || 'deposit'
   );
   const [depositMethod, setDepositMethod] = useState<'bank' | 'upi'>('bank');
+  const [withdrawMethod, setWithdrawMethod] = useState<'bank' | 'upi'>('bank');
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [bankDetails, setBankDetails] = useState('');
+  // Bank withdrawal fields
+  const [bankName, setBankName] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [ifscCode, setIfscCode] = useState('');
+  // UPI withdrawal field
+  const [withdrawUpiId, setWithdrawUpiId] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -75,20 +82,48 @@ export default function Wallet() {
       return;
     }
 
-    if (!bankDetails.trim()) {
-      toast({
-        title: "Bank Details Required",
-        description: "Please enter your bank account details",
-        variant: "destructive",
+    let withdrawDetails = '';
+    
+    if (withdrawMethod === 'bank') {
+      if (!bankName.trim() || !accountHolderName.trim() || !accountNumber.trim() || !ifscCode.trim()) {
+        toast({
+          title: "Bank Details Required",
+          description: "Please fill in all bank account details",
+          variant: "destructive",
+        });
+        return;
+      }
+      withdrawDetails = JSON.stringify({
+        method: 'bank',
+        bankName: bankName.trim(),
+        accountHolderName: accountHolderName.trim(),
+        accountNumber: accountNumber.trim(),
+        ifscCode: ifscCode.trim(),
       });
-      return;
+    } else {
+      if (!withdrawUpiId.trim()) {
+        toast({
+          title: "UPI ID Required",
+          description: "Please enter your UPI ID",
+          variant: "destructive",
+        });
+        return;
+      }
+      withdrawDetails = JSON.stringify({
+        method: 'upi',
+        upiId: withdrawUpiId.trim(),
+      });
     }
 
     setLoading(true);
-    await withdraw(amount, bankDetails);
+    await withdraw(amount, withdrawDetails);
     setLoading(false);
     setWithdrawAmount('');
-    setBankDetails('');
+    setBankName('');
+    setAccountHolderName('');
+    setAccountNumber('');
+    setIfscCode('');
+    setWithdrawUpiId('');
   };
 
   const depositPresets = [100, 500, 1000, 2000, 5000];
@@ -322,6 +357,26 @@ export default function Wallet() {
 
           {/* Withdraw Tab */}
           <TabsContent value="withdraw" className="mt-4 space-y-4">
+            {/* Withdrawal Method Selection */}
+            <div className="flex gap-2">
+              <Button
+                variant={withdrawMethod === 'bank' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setWithdrawMethod('bank')}
+              >
+                <Landmark className="w-4 h-4 mr-2" />
+                Bank Account
+              </Button>
+              <Button
+                variant={withdrawMethod === 'upi' ? 'default' : 'outline'}
+                className="flex-1"
+                onClick={() => setWithdrawMethod('upi')}
+              >
+                <Smartphone className="w-4 h-4 mr-2" />
+                UPI
+              </Button>
+            </div>
+
             <Card className="game-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Withdraw Money</CardTitle>
@@ -354,19 +409,71 @@ export default function Wallet() {
                   ))}
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Bank Account Details</Label>
-                  <Input
-                    placeholder="e.g., HDFC ****1234"
-                    value={bankDetails}
-                    onChange={(e) => setBankDetails(e.target.value)}
-                    className="bg-secondary"
-                  />
-                </div>
+                {/* Bank Account Form */}
+                {withdrawMethod === 'bank' && (
+                  <div className="space-y-3 pt-2 border-t border-border">
+                    <p className="text-sm font-medium text-muted-foreground">Enter Your Bank Details</p>
+                    <div className="space-y-2">
+                      <Label>Bank Name</Label>
+                      <Input
+                        placeholder="e.g., HDFC Bank"
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        className="bg-secondary"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Account Holder Name</Label>
+                      <Input
+                        placeholder="e.g., John Doe"
+                        value={accountHolderName}
+                        onChange={(e) => setAccountHolderName(e.target.value)}
+                        className="bg-secondary"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Account Number</Label>
+                      <Input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        placeholder="e.g., 1234567890"
+                        value={accountNumber}
+                        onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
+                        className="bg-secondary"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>IFSC Code</Label>
+                      <Input
+                        placeholder="e.g., HDFC0001234"
+                        value={ifscCode}
+                        onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
+                        className="bg-secondary"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* UPI Form */}
+                {withdrawMethod === 'upi' && (
+                  <div className="space-y-3 pt-2 border-t border-border">
+                    <p className="text-sm font-medium text-muted-foreground">Enter Your UPI Details</p>
+                    <div className="space-y-2">
+                      <Label>UPI ID</Label>
+                      <Input
+                        placeholder="e.g., yourname@upi"
+                        value={withdrawUpiId}
+                        onChange={(e) => setWithdrawUpiId(e.target.value)}
+                        className="bg-secondary"
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <Button
                   onClick={handleWithdraw}
-                  disabled={loading || !withdrawAmount || !bankDetails}
+                  disabled={loading || !withdrawAmount || (withdrawMethod === 'bank' ? (!bankName || !accountHolderName || !accountNumber || !ifscCode) : !withdrawUpiId)}
                   className="w-full h-12 bg-accent hover:bg-accent/90 text-accent-foreground"
                 >
                   {loading ? (
