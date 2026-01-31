@@ -3,7 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
-import { formatCurrency, mockGameHistory, mockBets } from '@/lib/mockData';
+import { useUserBets } from '@/hooks/useUserBets';
+import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -23,6 +24,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user, profile, isAuthenticated, isAdmin, isLoading, logout } = useAuth();
   const { balance } = useWallet();
+  const { bets, isLoading: betsLoading } = useUserBets();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -36,13 +38,12 @@ export default function Dashboard() {
   
   const displayName = profile?.name || user.email?.split('@')[0] || 'Player';
 
-  const recentBets = mockBets.slice(0, 3);
-  const recentResults = mockGameHistory.slice(0, 10);
+  const recentBets = bets.slice(0, 3);
 
   const stats = {
-    totalBets: mockBets.length,
-    wins: mockBets.filter(b => b.won).length,
-    totalWinnings: mockBets.filter(b => b.won).reduce((sum, b) => sum + (b.payout || 0), 0),
+    totalBets: bets.length,
+    wins: bets.filter(b => b.won).length,
+    totalWinnings: bets.filter(b => b.won).reduce((sum, b) => sum + (Number(b.payout) || 0), 0),
   };
 
   const handleLogout = () => {
@@ -181,48 +182,11 @@ export default function Dashboard() {
           </Card>
         </motion.div>
 
-        {/* Recent Results Ticker */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <Card className="game-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Clock className="w-4 h-4" />
-                Recent Results
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {recentResults.map((round, index) => (
-                  <motion.div
-                    key={round.id}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.3 + index * 0.05 }}
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      round.result === 'red' ? 'bg-game-red' :
-                      round.result === 'green' ? 'bg-game-green' :
-                      'bg-game-violet'
-                    }`}
-                  >
-                    <span className="text-xs font-bold text-white">
-                      {round.result?.charAt(0).toUpperCase()}
-                    </span>
-                  </motion.div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
         {/* Recent Bets */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={{ delay: 0.3 }}
         >
           <Card className="game-card">
             <CardHeader className="pb-2">
@@ -237,27 +201,34 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent className="space-y-2">
-              {recentBets.map((bet) => (
-                <div 
-                  key={bet.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg ${
-                      bet.color === 'red' ? 'bg-game-red' :
-                      bet.color === 'green' ? 'bg-game-green' :
-                      'bg-game-violet'
-                    }`} />
-                    <div>
-                      <p className="text-sm font-medium capitalize">{bet.color}</p>
-                      <p className="text-xs text-muted-foreground">{formatCurrency(bet.amount)}</p>
+              {betsLoading ? (
+                <p className="text-center text-muted-foreground py-4">Loading...</p>
+              ) : recentBets.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">No bets yet. Start playing!</p>
+              ) : (
+                recentBets.map((bet) => (
+                  <div 
+                    key={bet.id}
+                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg ${
+                        bet.bet_choice === 'red' ? 'bg-game-red' :
+                        bet.bet_choice === 'green' ? 'bg-game-green' :
+                        bet.bet_choice === 'violet' ? 'bg-game-violet' :
+                        'bg-primary'
+                      }`} />
+                      <div>
+                        <p className="text-sm font-medium capitalize">{bet.bet_choice}</p>
+                        <p className="text-xs text-muted-foreground">{formatCurrency(Number(bet.amount))}</p>
+                      </div>
+                    </div>
+                    <div className={`text-sm font-bold ${bet.won ? 'text-game-green' : bet.won === false ? 'text-destructive' : 'text-muted-foreground'}`}>
+                      {bet.won === null ? 'Pending' : bet.won ? `+${formatCurrency(Number(bet.payout) || 0)}` : 'Lost'}
                     </div>
                   </div>
-                  <div className={`text-sm font-bold ${bet.won ? 'text-game-green' : 'text-destructive'}`}>
-                    {bet.won ? `+${formatCurrency(bet.payout || 0)}` : 'Lost'}
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </CardContent>
           </Card>
         </motion.div>

@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { formatCurrency } from "@/lib/mockData";
+import { formatCurrency } from "@/lib/formatters";
 import { useAdminGameRounds, GameType } from "@/hooks/useAdminGameRounds";
 
 const GAME_TYPES: { id: GameType; name: string; icon: string }[] = [
