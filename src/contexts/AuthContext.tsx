@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { pushNotificationService } from '@/services/pushNotifications';
 
 interface Profile {
   id: string;
@@ -102,6 +103,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const adminStatus = await fetchUserRole(session.user.id);
             setIsAdmin(adminStatus);
             setIsLoading(false);
+            
+            // Initialize push notifications and register device token
+            await pushNotificationService.initialize();
+            const granted = await pushNotificationService.requestPermission();
+            if (granted) {
+              await pushNotificationService.registerToken(session.user.id);
+            }
           }, 0);
         } else {
           setProfile(null);
@@ -167,6 +175,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    // Remove device token before logging out
+    if (user) {
+      await pushNotificationService.removeToken(user.id);
+    }
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
