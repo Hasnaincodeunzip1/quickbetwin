@@ -34,7 +34,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { formatCurrency } from "@/lib/mockData";
+import { formatCurrency } from "@/lib/formatters";
 import { useAdminTransactions } from "@/hooks/useAdminTransactions";
 
 export default function AdminWithdrawals() {

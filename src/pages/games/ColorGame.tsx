@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { useGameRounds, GameType } from '@/hooks/useGameRounds';
 import { useBets } from '@/hooks/useBets';
-import { formatCurrency, getColorMultiplier } from '@/lib/mockData';
+import { formatCurrency, getColorMultiplier } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WaitingForRound } from '@/components/games/WaitingForRound';

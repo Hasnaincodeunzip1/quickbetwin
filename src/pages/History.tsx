@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserBets } from '@/hooks/useUserBets';
-import { formatCurrency } from '@/lib/mockData';
+import { formatCurrency } from '@/lib/formatters';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Wallet, 

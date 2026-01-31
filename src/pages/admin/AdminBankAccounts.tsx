@@ -41,7 +41,7 @@ import {
   ArrowDownCircle,
   ArrowUpCircle
 } from 'lucide-react';
-import { formatCurrency } from '@/lib/mockData';
+import { formatCurrency } from '@/lib/formatters';
 
 export default function AdminBankAccounts() {
   const { 
