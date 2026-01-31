@@ -320,6 +320,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      decrement_bank_balance: {
+        Args: { account_id: string; withdrawal_amount: number }
+        Returns: undefined
+      }
       generate_referral_code: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -327,6 +331,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_bank_deposits: {
+        Args: { account_id: string; deposit_amount: number }
+        Returns: undefined
+      }
+      increment_bank_transactions: {
+        Args: { account_id: string }
+        Returns: undefined
       }
     }
     Enums: {

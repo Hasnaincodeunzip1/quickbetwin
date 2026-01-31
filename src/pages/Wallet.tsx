@@ -28,7 +28,7 @@ export default function Wallet() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isAuthenticated, isLoading } = useAuth();
-  const { balance, transactions, deposit, withdraw } = useWallet();
+  const { balance, transactions, deposit, withdraw, depositBankAccount } = useWallet();
 
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw' | 'history'>(
     (searchParams.get('action') as 'deposit' | 'withdraw') || 'deposit'
@@ -163,6 +163,38 @@ export default function Wallet() {
 
           {/* Deposit Tab */}
           <TabsContent value="deposit" className="mt-4 space-y-4">
+            {/* Bank Account Info */}
+            {depositBankAccount && (
+              <Card className="game-card border-primary/30 bg-primary/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-game-green animate-pulse" />
+                    Transfer to This Account
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Bank</span>
+                    <span className="font-medium">{depositBankAccount.bank_name}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Account Holder</span>
+                    <span className="font-medium">{depositBankAccount.account_holder_name}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Account Number</span>
+                    <span className="font-mono font-medium">{depositBankAccount.account_number}</span>
+                  </div>
+                  {depositBankAccount.ifsc_code && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">IFSC Code</span>
+                      <span className="font-mono font-medium">{depositBankAccount.ifsc_code}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
             <Card className="game-card">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Add Money</CardTitle>
@@ -195,7 +227,7 @@ export default function Wallet() {
 
                 <Button
                   onClick={handleDeposit}
-                  disabled={loading || !depositAmount}
+                  disabled={loading || !depositAmount || !depositBankAccount}
                   className="w-full h-12 bg-primary hover:bg-primary/90 text-primary-foreground glow-primary"
                 >
                   {loading ? (
@@ -209,7 +241,7 @@ export default function Wallet() {
                 </Button>
 
                 <p className="text-xs text-center text-muted-foreground">
-                  Secure payments powered by Razorpay
+                  Transfer to the account above and click deposit. Your wallet will be credited after admin approval.
                 </p>
               </CardContent>
             </Card>

@@ -10,9 +10,11 @@ interface TransactionWithUser {
   status: string;
   reference: string | null;
   bank_details: string | null;
+  assigned_bank_account_id: string | null;
   created_at: string;
   user_name?: string;
   user_email?: string;
+  assigned_bank_name?: string;
 }
 
 export function useAdminTransactions() {
@@ -48,9 +50,21 @@ export function useAdminTransactions() {
             .eq('id', tx.user_id)
             .maybeSingle();
 
+          // Get assigned bank account name if exists
+          let assignedBankName = null;
+          if (tx.assigned_bank_account_id) {
+            const { data: bankData } = await supabase
+              .from('admin_bank_accounts')
+              .select('bank_name')
+              .eq('id', tx.assigned_bank_account_id)
+              .maybeSingle();
+            assignedBankName = bankData?.bank_name;
+          }
+
           return {
             ...tx,
             user_name: profile?.name || 'Unknown User',
+            assigned_bank_name: assignedBankName,
           };
         })
       );
@@ -89,7 +103,7 @@ export function useAdminTransactions() {
 
       if (txError) throw txError;
 
-      // For deposits, add to wallet balance
+      // For deposits, add to wallet balance and update bank stats
       if (tx.type === 'deposit') {
         const { data: wallet, error: walletError } = await supabase
           .from('wallets')
@@ -105,9 +119,41 @@ export function useAdminTransactions() {
           .eq('user_id', tx.user_id);
 
         if (updateError) throw updateError;
+
+        // Update bank account stats if assigned
+        if (tx.assigned_bank_account_id) {
+          await supabase.rpc('increment_bank_deposits', { 
+            account_id: tx.assigned_bank_account_id, 
+            deposit_amount: Number(tx.amount) 
+          });
+        }
       }
-      // For withdrawals, balance was already deducted when request was made
-      // (or you can deduct here if you prefer)
+
+      // For withdrawals, we need to debit from the bank with most deposits
+      if (tx.type === 'withdrawal') {
+        // Get the bank account with most deposits that has sufficient balance
+        const { data: bankAccounts } = await supabase
+          .from('admin_bank_accounts')
+          .select('id, balance, total_deposits')
+          .eq('is_active', true)
+          .gte('balance', Number(tx.amount))
+          .order('total_deposits', { ascending: false })
+          .limit(1);
+
+        if (bankAccounts && bankAccounts.length > 0) {
+          const bankAccount = bankAccounts[0];
+          await supabase.rpc('decrement_bank_balance', {
+            account_id: bankAccount.id,
+            withdrawal_amount: Number(tx.amount)
+          });
+
+          // Update the transaction with the assigned bank account
+          await supabase
+            .from('transactions')
+            .update({ assigned_bank_account_id: bankAccount.id })
+            .eq('id', transactionId);
+        }
+      }
 
       toast.success(`${tx.type === 'deposit' ? 'Deposit' : 'Withdrawal'} approved`);
       await fetchTransactions();
