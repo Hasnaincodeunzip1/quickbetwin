@@ -106,42 +106,48 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
   }, [user]);
 
-  // Fetch bank account with least transactions (for deposits)
+  // Fetch deposit accounts via edge function (bypasses RLS for admin accounts)
   const fetchDepositAccount = useCallback(async () => {
+    if (!user) {
+      setDepositBankAccount(null);
+      setDepositUPIAccount(null);
+      return;
+    }
+
     try {
-      // Fetch bank account
-      const { data: bankData, error: bankError } = await supabase
-        .from('admin_bank_accounts')
-        .select('id, bank_name, account_holder_name, account_number, ifsc_code, total_transactions')
-        .eq('is_active', true)
-        .order('total_transactions', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
 
-      if (bankError) {
-        console.error('Error fetching deposit bank account:', bankError);
+      if (!token) {
+        console.error('No auth token available');
+        return;
       }
-      setDepositBankAccount(bankData);
 
-      // Fetch UPI account
-      const { data: upiData, error: upiError } = await supabase
-        .from('admin_upi_accounts')
-        .select('id, upi_id, holder_name, qr_code_url, total_transactions')
-        .eq('is_active', true)
-        .order('total_transactions', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-deposit-accounts`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      if (upiError) {
-        console.error('Error fetching deposit UPI account:', upiError);
+      if (!response.ok) {
+        console.error('Error fetching deposit accounts:', response.statusText);
+        return;
       }
-      setDepositUPIAccount(upiData);
+
+      const data = await response.json();
+      setDepositBankAccount(data.bankAccount);
+      setDepositUPIAccount(data.upiAccount);
     } catch (error) {
       console.error('Error fetching deposit accounts:', error);
       setDepositBankAccount(null);
       setDepositUPIAccount(null);
     }
-  }, []);
+  }, [user]);
 
   // Subscribe to wallet and transaction changes
   useEffect(() => {
