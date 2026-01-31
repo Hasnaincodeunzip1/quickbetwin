@@ -8,23 +8,20 @@ import { useBets } from '@/hooks/useBets';
 import { formatCurrency, getColorMultiplier } from '@/lib/mockData';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { WaitingForRound } from '@/components/games/WaitingForRound';
 import { 
   Wallet, 
   Gamepad2, 
   History, 
   Users, 
-  Clock,
   Trophy,
   Minus,
   Plus,
-  Sparkles,
-  Zap
+  Sparkles
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 type GameColor = 'red' | 'green' | 'violet';
-type GameDuration = 1 | 3 | 5;
 
 export default function ColorGame() {
   const navigate = useNavigate();
@@ -32,18 +29,14 @@ export default function ColorGame() {
   const { balance, refetchBalance } = useWallet();
   const { placeBet, currentBet, isPlacingBet, clearCurrentBet, fetchBetForRound } = useBets();
   
-  const [duration, setDuration] = useState<GameDuration>(1);
   const gameType: GameType = 'color';
-  const { currentRound, recentResults } = useGameRounds({ gameType, durationMinutes: duration });
+  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ gameType });
 
-  const [timeLeft, setTimeLeft] = useState(60);
-  const [isLocked, setIsLocked] = useState(false);
   const [selectedColor, setSelectedColor] = useState<GameColor | null>(null);
   const [betAmount, setBetAmount] = useState(100);
   const [localBet, setLocalBet] = useState<{ color: GameColor; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<GameColor | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [roundNumber, setRoundNumber] = useState(2024010151);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -51,19 +44,16 @@ export default function ColorGame() {
     }
   }, [isAuthenticated, isLoading, navigate]);
 
-  // Sync with current round from database
+  // Fetch existing bet for current round
   useEffect(() => {
     if (currentRound) {
-      setRoundNumber(currentRound.round_number);
-      const endTime = new Date(currentRound.end_time).getTime();
-      const now = Date.now();
-      const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
-      setTimeLeft(remaining);
-      
-      // Fetch existing bet for this round
       fetchBetForRound(currentRound.id);
+    } else {
+      clearCurrentBet();
+      setLocalBet(null);
+      setSelectedColor(null);
     }
-  }, [currentRound, fetchBetForRound]);
+  }, [currentRound, fetchBetForRound, clearCurrentBet]);
 
   // Handle completed rounds
   useEffect(() => {
@@ -72,7 +62,6 @@ export default function ColorGame() {
       setLastResult(latestResult);
       setShowResult(true);
       
-      // Check if user won
       if (localBet && localBet.color === latestResult) {
         const multiplier = getColorMultiplier(latestResult);
         const winAmount = localBet.amount * multiplier;
@@ -94,79 +83,10 @@ export default function ColorGame() {
         setLocalBet(null);
         clearCurrentBet();
         setSelectedColor(null);
-        setIsLocked(false);
         refetchBalance();
       }, 3000);
     }
   }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
-
-  useEffect(() => {
-    const totalSeconds = duration * 60;
-    setTimeLeft(totalSeconds);
-    setIsLocked(false);
-    setLocalBet(null);
-    clearCurrentBet();
-    setSelectedColor(null);
-    setShowResult(false);
-  }, [duration, clearCurrentBet]);
-
-  // Timer countdown (local simulation when no DB round exists)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          // Local simulation when no active round
-          if (!currentRound) {
-            const results: GameColor[] = ['red', 'green', 'violet'];
-            const result = results[Math.floor(Math.random() * 3)];
-            setLastResult(result);
-            setShowResult(true);
-
-            if (localBet) {
-              if (localBet.color === result) {
-                const multiplier = getColorMultiplier(result);
-                const winAmount = localBet.amount * multiplier;
-                toast({
-                  title: "🎉 You Won!",
-                  description: `Congratulations! You won ₹${winAmount}`,
-                });
-              } else {
-                toast({
-                  title: "Better luck next time!",
-                  description: `The result was ${result}. Keep playing!`,
-                  variant: "destructive",
-                });
-              }
-              refetchBalance();
-            }
-
-            setTimeout(() => {
-              setShowResult(false);
-              setLocalBet(null);
-              clearCurrentBet();
-              setSelectedColor(null);
-              setIsLocked(false);
-              setRoundNumber(prev => prev + 1);
-            }, 3000);
-          }
-
-          return duration * 60;
-        }
-
-        if (prev === 11 && !isLocked) {
-          setIsLocked(true);
-          toast({
-            title: "Betting Closed",
-            description: "Wait for the result...",
-          });
-        }
-
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, [duration, localBet, isLocked, currentRound, clearCurrentBet, refetchBalance]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -179,7 +99,7 @@ export default function ColorGame() {
   };
 
   const handlePlaceBet = useCallback(async () => {
-    if (!selectedColor || isLocked || localBet || isPlacingBet) return;
+    if (!selectedColor || !isBettingOpen || localBet || isPlacingBet || !currentRound) return;
 
     if (betAmount > balance) {
       toast({
@@ -190,22 +110,12 @@ export default function ColorGame() {
       return;
     }
 
-    // If there's a DB round, use the API
-    if (currentRound) {
-      const bet = await placeBet(currentRound.id, selectedColor, betAmount);
-      if (bet) {
-        setLocalBet({ color: selectedColor, amount: betAmount });
-        refetchBalance();
-      }
-    } else {
-      // Local simulation
+    const bet = await placeBet(currentRound.id, selectedColor, betAmount);
+    if (bet) {
       setLocalBet({ color: selectedColor, amount: betAmount });
-      toast({
-        title: "Bet Placed!",
-        description: `₹${betAmount} on ${selectedColor}`,
-      });
+      refetchBalance();
     }
-  }, [selectedColor, isLocked, localBet, isPlacingBet, betAmount, balance, currentRound, placeBet, refetchBalance]);
+  }, [selectedColor, isBettingOpen, localBet, isPlacingBet, betAmount, balance, currentRound, placeBet, refetchBalance]);
 
   const presetAmounts = [50, 100, 200, 500, 1000];
 
@@ -214,6 +124,8 @@ export default function ColorGame() {
     green: { bg: 'bg-game-green', glow: 'shadow-[0_0_30px_hsl(142_76%_45%/0.4)]', label: 'Green' },
     violet: { bg: 'bg-game-violet', glow: 'shadow-[0_0_30px_hsl(270_80%_55%/0.4)]', label: 'Violet' },
   };
+
+  const canBet = isBettingOpen && !localBet && currentRound;
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -233,62 +145,161 @@ export default function ColorGame() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
-        {/* Game Mode Selector */}
-        <Tabs value={duration.toString()} onValueChange={(v) => setDuration(Number(v) as GameDuration)}>
-          <TabsList className="grid w-full grid-cols-3 bg-secondary h-12">
-            <TabsTrigger value="1" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Zap className="w-4 h-4" /> 1 Min
-            </TabsTrigger>
-            <TabsTrigger value="3" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Clock className="w-4 h-4" /> 3 Min
-            </TabsTrigger>
-            <TabsTrigger value="5" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
-              <Clock className="w-4 h-4" /> 5 Min
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
-
-        {/* Timer & Round Info */}
-        <Card className="game-card overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
-          <CardContent className="relative pt-6 text-center">
-            <div className="flex justify-center gap-2 mb-2">
-              <span className="px-3 py-1 bg-secondary rounded-full text-xs font-medium">
-                Round #{roundNumber}
-              </span>
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${isLocked ? 'bg-destructive text-destructive-foreground' : 'bg-primary/20 text-primary'}`}>
-                {isLocked ? '🔒 Locked' : '🎲 Open'}
-              </span>
-            </div>
-            <motion.div
-              key={timeLeft}
-              initial={{ scale: 1 }}
-              animate={{ scale: timeLeft <= 10 ? [1, 1.1, 1] : 1 }}
-              transition={{ duration: 0.5 }}
-              className={`text-6xl font-bold font-mono ${
-                timeLeft <= 10 ? 'text-destructive' : 'text-foreground'
-              }`}
-            >
-              {formatTime(timeLeft)}
-            </motion.div>
-            {timeLeft <= 10 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="mt-2"
-              >
-                <div className="h-1 bg-secondary rounded-full overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-destructive"
-                    initial={{ width: '100%' }}
-                    animate={{ width: '0%' }}
-                    transition={{ duration: timeLeft, ease: 'linear' }}
-                  />
+        {/* Waiting State or Timer */}
+        {!currentRound ? (
+          <WaitingForRound gameName="Color Prediction" />
+        ) : (
+          <>
+            {/* Timer & Round Info */}
+            <Card className="game-card overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
+              <CardContent className="relative pt-6 text-center">
+                <div className="flex justify-center gap-2 mb-2">
+                  <span className="px-3 py-1 bg-secondary rounded-full text-xs font-medium">
+                    Round #{currentRound.round_number}
+                  </span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${isLocked ? 'bg-destructive text-destructive-foreground' : 'bg-primary/20 text-primary'}`}>
+                    {isLocked ? '🔒 Locked' : '🎲 Open'}
+                  </span>
                 </div>
-              </motion.div>
-            )}
-          </CardContent>
-        </Card>
+                <motion.div
+                  key={timeLeft}
+                  initial={{ scale: 1 }}
+                  animate={{ scale: timeLeft <= 10 ? [1, 1.1, 1] : 1 }}
+                  transition={{ duration: 0.5 }}
+                  className={`text-6xl font-bold font-mono ${
+                    timeLeft <= 10 ? 'text-destructive' : 'text-foreground'
+                  }`}
+                >
+                  {formatTime(timeLeft)}
+                </motion.div>
+                {timeLeft <= 10 && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="mt-2"
+                  >
+                    <div className="h-1 bg-secondary rounded-full overflow-hidden">
+                      <motion.div 
+                        className="h-full bg-destructive"
+                        initial={{ width: '100%' }}
+                        animate={{ width: '0%' }}
+                        transition={{ duration: timeLeft, ease: 'linear' }}
+                      />
+                    </div>
+                  </motion.div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Color Selection */}
+            <Card className="game-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  Select Color
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-3">
+                  {(['red', 'green', 'violet'] as GameColor[]).map((color) => (
+                    <motion.button
+                      key={color}
+                      whileHover={{ scale: canBet ? 1.02 : 1 }}
+                      whileTap={{ scale: canBet ? 0.95 : 1 }}
+                      onClick={() => canBet && setSelectedColor(color)}
+                      disabled={!canBet}
+                      className={`relative h-28 rounded-2xl transition-all overflow-hidden ${colorConfig[color].bg} ${
+                        selectedColor === color 
+                          ? `ring-4 ring-white ${colorConfig[color].glow} scale-105` 
+                          : 'opacity-80 hover:opacity-100'
+                      } ${!canBet ? 'cursor-not-allowed opacity-50' : ''}`}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+                        <span className="text-xl font-bold capitalize">{color}</span>
+                        <span className="text-sm opacity-90 bg-white/20 px-2 py-0.5 rounded-full mt-1">
+                          {getColorMultiplier(color)}x
+                        </span>
+                      </div>
+                      {localBet?.color === color && (
+                        <motion.div 
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg"
+                        >
+                          <span className="text-sm font-bold text-background">✓</span>
+                        </motion.div>
+                      )}
+                    </motion.button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Bet Amount */}
+            <Card className="game-card">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Bet Amount</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-center gap-4">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleBetAmountChange(-50)}
+                    disabled={!canBet || betAmount <= 10}
+                    className="w-14 h-14 rounded-full text-lg"
+                  >
+                    <Minus className="w-6 h-6" />
+                  </Button>
+                  <div className="text-4xl font-bold w-36 text-center">
+                    {formatCurrency(betAmount)}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => handleBetAmountChange(50)}
+                    disabled={!canBet || betAmount >= balance}
+                    className="w-14 h-14 rounded-full text-lg"
+                  >
+                    <Plus className="w-6 h-6" />
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap justify-center gap-2">
+                  {presetAmounts.map((amount) => (
+                    <Button
+                      key={amount}
+                      variant={betAmount === amount ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => canBet && setBetAmount(Math.min(amount, balance))}
+                      disabled={!canBet}
+                      className={`px-4 ${betAmount === amount ? 'bg-primary text-primary-foreground' : ''}`}
+                    >
+                      {formatCurrency(amount)}
+                    </Button>
+                  ))}
+                </div>
+
+                <Button
+                  onClick={handlePlaceBet}
+                  disabled={!selectedColor || !canBet || betAmount > balance || isPlacingBet}
+                  className="w-full h-16 text-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground glow-primary disabled:opacity-50"
+                >
+                  {isPlacingBet 
+                    ? 'Placing Bet...'
+                    : localBet 
+                      ? `✓ ${formatCurrency(localBet.amount)} on ${localBet.color}`
+                      : selectedColor 
+                        ? `Place Bet - ${formatCurrency(betAmount)}`
+                        : 'Select a Color'
+                  }
+                </Button>
+              </CardContent>
+            </Card>
+          </>
+        )}
 
         {/* Result Display */}
         <AnimatePresence>
@@ -319,115 +330,6 @@ export default function ColorGame() {
           )}
         </AnimatePresence>
 
-        {/* Color Selection */}
-        <Card className="game-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" />
-              Select Color
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-3">
-              {(['red', 'green', 'violet'] as GameColor[]).map((color) => (
-                <motion.button
-                  key={color}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => !isLocked && !localBet && setSelectedColor(color)}
-                  disabled={isLocked || !!localBet}
-                  className={`relative h-28 rounded-2xl transition-all overflow-hidden ${colorConfig[color].bg} ${
-                    selectedColor === color 
-                      ? `ring-4 ring-white ${colorConfig[color].glow} scale-105` 
-                      : 'opacity-80 hover:opacity-100'
-                  } ${
-                    (isLocked || localBet) ? 'cursor-not-allowed opacity-50' : ''
-                  }`}
-                >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
-                  <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
-                    <span className="text-xl font-bold capitalize">{color}</span>
-                    <span className="text-sm opacity-90 bg-white/20 px-2 py-0.5 rounded-full mt-1">
-                      {getColorMultiplier(color)}x
-                    </span>
-                  </div>
-                  {localBet?.color === color && (
-                    <motion.div 
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg"
-                    >
-                      <span className="text-sm font-bold text-background">✓</span>
-                    </motion.div>
-                  )}
-                </motion.button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Bet Amount */}
-        <Card className="game-card">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Bet Amount</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-center gap-4">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleBetAmountChange(-50)}
-                disabled={isLocked || !!localBet || betAmount <= 10}
-                className="w-14 h-14 rounded-full text-lg"
-              >
-                <Minus className="w-6 h-6" />
-              </Button>
-              <div className="text-4xl font-bold w-36 text-center">
-                {formatCurrency(betAmount)}
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleBetAmountChange(50)}
-                disabled={isLocked || !!localBet || betAmount >= balance}
-                className="w-14 h-14 rounded-full text-lg"
-              >
-                <Plus className="w-6 h-6" />
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-2">
-              {presetAmounts.map((amount) => (
-                <Button
-                  key={amount}
-                  variant={betAmount === amount ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => !isLocked && !localBet && setBetAmount(Math.min(amount, balance))}
-                  disabled={isLocked || !!localBet}
-                  className={`px-4 ${betAmount === amount ? 'bg-primary text-primary-foreground' : ''}`}
-                >
-                  {formatCurrency(amount)}
-                </Button>
-              ))}
-            </div>
-
-            <Button
-              onClick={handlePlaceBet}
-              disabled={!selectedColor || isLocked || !!localBet || betAmount > balance || isPlacingBet}
-              className="w-full h-16 text-xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground glow-primary disabled:opacity-50"
-            >
-              {isPlacingBet 
-                ? 'Placing Bet...'
-                : localBet 
-                  ? `✓ ${formatCurrency(localBet.amount)} on ${localBet.color}`
-                  : selectedColor 
-                    ? `Place Bet - ${formatCurrency(betAmount)}`
-                    : 'Select a Color'
-              }
-            </Button>
-          </CardContent>
-        </Card>
-
         {/* Recent Results */}
         <Card className="game-card">
           <CardHeader className="pb-2">
@@ -445,15 +347,13 @@ export default function ColorGame() {
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: index * 0.05 }}
-                    className={`w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                    className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold ${
                       round.result === 'red' ? 'bg-game-red' :
                       round.result === 'green' ? 'bg-game-green' :
                       'bg-game-violet'
                     }`}
                   >
-                    <span className="text-sm font-bold text-white">
-                      {round.result?.charAt(0).toUpperCase()}
-                    </span>
+                    {round.result?.[0].toUpperCase()}
                   </motion.div>
                 ))
               ) : (
@@ -464,7 +364,6 @@ export default function ColorGame() {
         </Card>
       </main>
 
-      {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 glass border-t border-border">
         <div className="container max-w-lg mx-auto px-4">
           <div className="flex items-center justify-around py-3">
