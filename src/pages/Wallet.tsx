@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { formatCurrency } from '@/lib/formatters';
+import { openUPIWithFallback, isMobileDevice } from '@/lib/upiDeepLink';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,7 +23,8 @@ import {
   Clock,
   XCircle,
   Landmark,
-  Smartphone
+  Smartphone,
+  ExternalLink
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -66,9 +68,59 @@ export default function Wallet() {
     }
 
     setLoading(true);
-    await deposit(amount, depositMethod);
+    const success = await deposit(amount, depositMethod);
     setLoading(false);
-    setDepositAmount('');
+    
+    if (success) {
+      setDepositAmount('');
+    }
+  };
+
+  // Handle UPI Pay Now button - opens UPI app with payment details
+  const handleUPIPayNow = () => {
+    const amount = parseFloat(depositAmount);
+    if (isNaN(amount) || amount < 100) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter an amount of ₹100 or more",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!depositUPIAccount) {
+      toast({
+        title: "No UPI Account",
+        description: "No UPI account available for deposits",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const transactionRef = `DEP${Date.now()}`;
+
+    openUPIWithFallback(
+      {
+        upiId: depositUPIAccount.upi_id,
+        payeeName: depositUPIAccount.holder_name,
+        amount: amount,
+        transactionNote: `Deposit to QuickBetWin`,
+        transactionRef: transactionRef,
+      },
+      () => {
+        // Fallback if UPI app doesn't open
+        toast({
+          title: "UPI App Not Found",
+          description: "Please install a UPI app (GPay, PhonePe, Paytm) or use the QR code to pay",
+          variant: "destructive",
+        });
+      }
+    );
+
+    toast({
+      title: "Opening UPI App",
+      description: "Complete the payment in your UPI app, then click 'Confirm Deposit' below",
+    });
   };
 
   const handleWithdraw = async () => {
@@ -270,15 +322,36 @@ export default function Wallet() {
                     <span className="text-muted-foreground">Name</span>
                     <span className="font-medium">{depositUPIAccount.holder_name}</span>
                   </div>
+                  
+                  {/* Pay Now Button - Opens UPI App */}
+                  {isMobileDevice() && (
+                    <Button
+                      onClick={handleUPIPayNow}
+                      disabled={!depositAmount || parseFloat(depositAmount) < 100}
+                      className="w-full h-12 bg-game-green hover:bg-game-green/90 text-white"
+                    >
+                      <ExternalLink className="w-5 h-5 mr-2" />
+                      Pay ₹{depositAmount || '0'} in UPI App
+                    </Button>
+                  )}
+                  
                   {depositUPIAccount.qr_code_url && (
                     <div className="flex flex-col items-center pt-2">
-                      <p className="text-xs text-muted-foreground mb-2">Scan QR Code to Pay</p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {isMobileDevice() ? 'Or scan QR Code to Pay' : 'Scan QR Code to Pay'}
+                      </p>
                       <img
                         src={depositUPIAccount.qr_code_url}
                         alt="UPI QR Code"
                         className="w-48 h-48 rounded-lg border bg-white p-2"
                       />
                     </div>
+                  )}
+                  
+                  {!isMobileDevice() && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      💡 Tip: Open on your phone to pay directly via UPI app
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -341,7 +414,10 @@ export default function Wallet() {
                   ) : (
                     <>
                       <ArrowDownCircle className="w-5 h-5 mr-2" />
-                      Deposit {depositAmount && formatCurrency(parseFloat(depositAmount) || 0)}
+                      {depositMethod === 'upi' 
+                        ? `Confirm Deposit ${depositAmount && formatCurrency(parseFloat(depositAmount) || 0)}`
+                        : `Deposit ${depositAmount && formatCurrency(parseFloat(depositAmount) || 0)}`
+                      }
                     </>
                   )}
                 </Button>
@@ -349,7 +425,9 @@ export default function Wallet() {
                 <p className="text-xs text-center text-muted-foreground">
                   {depositMethod === 'bank' 
                     ? 'Transfer to the account above and click deposit. Your wallet will be credited after admin approval.'
-                    : 'Pay via UPI and click deposit. Your wallet will be credited after admin approval.'}
+                    : isMobileDevice()
+                      ? 'Click "Pay in UPI App" to pay, then "Confirm Deposit" to notify admin. Your wallet will be credited after approval.'
+                      : 'Pay via UPI using the QR code and click confirm. Your wallet will be credited after admin approval.'}
                 </p>
               </CardContent>
             </Card>
