@@ -20,26 +20,25 @@ export interface GameRound {
 
 interface UseGameRoundsOptions {
   gameType: GameType;
-  durationMinutes: number;
+  durationMinutes?: number;
 }
 
-export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOptions) {
+export function useGameRounds({ gameType }: UseGameRoundsOptions) {
   const [currentRound, setCurrentRound] = useState<GameRound | null>(null);
   const [recentResults, setRecentResults] = useState<GameRound[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [timeLeft, setTimeLeft] = useState(0);
   const { user } = useAuth();
 
-  // Fetch or create current round
+  // Fetch current active or locked round
   const fetchCurrentRound = useCallback(async () => {
     try {
-      // Get active round for this game type
-      const now = new Date().toISOString();
+      // Get active round for this game type (betting or locked status)
       const { data: activeRound } = await supabase
         .from('game_rounds')
         .select('*')
         .eq('game_type', gameType)
-        .eq('status', 'betting')
-        .gte('end_time', now)
+        .in('status', ['betting', 'locked'])
         .order('round_number', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -47,7 +46,6 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
       if (activeRound) {
         setCurrentRound(activeRound as GameRound);
       } else {
-        // No active round found - round will be created by admin
         setCurrentRound(null);
       }
     } catch (error) {
@@ -77,6 +75,26 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
     }
   }, [gameType]);
 
+  // Timer countdown for current round
+  useEffect(() => {
+    if (!currentRound || currentRound.status === 'completed') {
+      setTimeLeft(0);
+      return;
+    }
+
+    const updateTime = () => {
+      const endTime = new Date(currentRound.end_time).getTime();
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
+      setTimeLeft(remaining);
+    };
+
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+
+    return () => clearInterval(interval);
+  }, [currentRound]);
+
   // Subscribe to real-time updates
   useEffect(() => {
     fetchCurrentRound();
@@ -95,7 +113,7 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
         (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const round = payload.new as GameRound;
-            if (round.status === 'betting') {
+            if (round.status === 'betting' || round.status === 'locked') {
               setCurrentRound(round);
             } else if (round.status === 'completed') {
               setCurrentRound(null);
@@ -115,6 +133,9 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
     currentRound,
     recentResults,
     isLoading,
+    timeLeft,
+    isBettingOpen: currentRound?.status === 'betting',
+    isLocked: currentRound?.status === 'locked',
     refetch: fetchCurrentRound,
   };
 }
