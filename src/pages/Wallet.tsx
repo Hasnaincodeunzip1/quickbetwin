@@ -140,7 +140,7 @@ export default function Wallet() {
           animate={{ opacity: 1, y: 0 }}
         >
           <Card className="game-card overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10 pointer-events-none" />
             <CardContent className="relative pt-6 text-center">
               <WalletIcon className="w-12 h-12 mx-auto mb-2 text-primary" />
               <p className="text-muted-foreground text-sm">Available Balance</p>
@@ -273,12 +273,13 @@ export default function Wallet() {
                 <div className="space-y-2">
                   <Label>Amount (₹)</Label>
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="Enter amount"
                     value={depositAmount}
-                    onChange={(e) => setDepositAmount(e.target.value)}
+                    onChange={(e) => setDepositAmount(e.target.value.replace(/\D/g, ''))}
                     className="bg-secondary text-lg h-12"
-                    min={100}
                   />
                 </div>
 
@@ -329,13 +330,13 @@ export default function Wallet() {
                 <div className="space-y-2">
                   <Label>Amount (₹)</Label>
                   <Input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
                     placeholder="Enter amount"
                     value={withdrawAmount}
-                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                    onChange={(e) => setWithdrawAmount(e.target.value.replace(/\D/g, ''))}
                     className="bg-secondary text-lg h-12"
-                    min={100}
-                    max={balance}
                   />
                 </div>
 
