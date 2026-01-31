@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { subDays, startOfDay, format } from "date-fns";
+import { useEffect } from "react";
 
 export interface AdminStats {
   totalUsers: number;
@@ -38,6 +39,46 @@ const GAME_TYPE_COLORS: Record<string, { color: string; fill: string }> = {
 };
 
 export function useAdminAnalytics() {
+  const queryClient = useQueryClient();
+
+  // Set up realtime subscriptions for instant updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin-analytics')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bets' },
+        () => {
+          // Invalidate queries when bets change
+          queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+          queryClient.invalidateQueries({ queryKey: ["admin-revenue-chart"] });
+          queryClient.invalidateQueries({ queryKey: ["admin-bet-distribution"] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'transactions' },
+        () => {
+          // Invalidate stats when transactions change (for pending withdrawals)
+          queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        () => {
+          // Invalidate queries when new users sign up
+          queryClient.invalidateQueries({ queryKey: ["admin-stats"] });
+          queryClient.invalidateQueries({ queryKey: ["admin-user-growth"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   // Fetch admin stats
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["admin-stats"],
@@ -100,7 +141,7 @@ export function useAdminAnalytics() {
         profitMargin,
       };
     },
-    refetchInterval: 30000, // Refresh every 30 seconds
+    staleTime: 5000, // Consider data fresh for 5 seconds
   });
 
   // Fetch revenue chart data (last 7 days)
@@ -132,7 +173,7 @@ export function useAdminAnalytics() {
 
       return days;
     },
-    refetchInterval: 60000,
+    staleTime: 10000,
   });
 
   // Fetch bet distribution by game type
@@ -182,7 +223,7 @@ export function useAdminAnalytics() {
         fill: config.fill,
       }));
     },
-    refetchInterval: 60000,
+    staleTime: 10000,
   });
 
   // Fetch user growth data (last 7 days)
@@ -208,7 +249,7 @@ export function useAdminAnalytics() {
 
       return days;
     },
-    refetchInterval: 60000,
+    staleTime: 30000,
   });
 
   return {
