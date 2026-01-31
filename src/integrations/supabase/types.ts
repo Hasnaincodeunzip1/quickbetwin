@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_bank_accounts: {
+        Row: {
+          account_holder_name: string
+          account_number: string
+          balance: number
+          bank_name: string
+          created_at: string
+          id: string
+          ifsc_code: string | null
+          is_active: boolean
+          total_deposits: number
+          total_transactions: number
+          updated_at: string
+        }
+        Insert: {
+          account_holder_name: string
+          account_number: string
+          balance?: number
+          bank_name: string
+          created_at?: string
+          id?: string
+          ifsc_code?: string | null
+          is_active?: boolean
+          total_deposits?: number
+          total_transactions?: number
+          updated_at?: string
+        }
+        Update: {
+          account_holder_name?: string
+          account_number?: string
+          balance?: number
+          bank_name?: string
+          created_at?: string
+          id?: string
+          ifsc_code?: string | null
+          is_active?: boolean
+          total_deposits?: number
+          total_transactions?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bets: {
         Row: {
           amount: number
@@ -187,6 +229,7 @@ export type Database = {
       transactions: {
         Row: {
           amount: number
+          assigned_bank_account_id: string | null
           bank_details: string | null
           created_at: string
           id: string
@@ -197,6 +240,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          assigned_bank_account_id?: string | null
           bank_details?: string | null
           created_at?: string
           id?: string
@@ -207,6 +251,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          assigned_bank_account_id?: string | null
           bank_details?: string | null
           created_at?: string
           id?: string
@@ -215,7 +260,15 @@ export type Database = {
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "transactions_assigned_bank_account_id_fkey"
+            columns: ["assigned_bank_account_id"]
+            isOneToOne: false
+            referencedRelation: "admin_bank_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
