@@ -181,6 +181,7 @@ export default function AdminWithdrawals() {
                   <TableHead>User</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Details</TableHead>
+                  <TableHead>Bank Account</TableHead>
                   <TableHead>Requested</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -218,6 +219,16 @@ export default function AdminWithdrawals() {
                         </div>
                       ) : (
                         <span className="text-sm text-muted-foreground">{tx.reference}</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {tx.assigned_bank_name ? (
+                        <Badge variant="outline" className="gap-1">
+                          <Building className="w-3 h-3" />
+                          {tx.assigned_bank_name}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">Not assigned</span>
                       )}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
@@ -266,7 +277,7 @@ export default function AdminWithdrawals() {
                 ))}
                 {(activeTab === 'pending' ? pendingTransactions : transactions).length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                       No {activeTab === 'pending' ? 'pending ' : ''}transactions found
                     </TableCell>
                   </TableRow>
