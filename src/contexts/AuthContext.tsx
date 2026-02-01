@@ -40,6 +40,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  const clearAuthStorage = () => {
+    // In some mobile WebView / PWA cases, auth storage may not clear reliably.
+    // This is a safe fallback: remove any Supabase-style auth token keys.
+    try {
+      const removeMatching = (storage: Storage) => {
+        for (const key of Object.keys(storage)) {
+          if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+            storage.removeItem(key);
+          }
+        }
+      };
+
+      removeMatching(window.localStorage);
+      removeMatching(window.sessionStorage);
+    } catch {
+      // ignore
+    }
+  };
+
   const fetchProfile = async (userId: string) => {
     try {
       const { data, error } = await supabase
@@ -181,9 +200,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
-    // Remove device token before logging out
+    // Remove device token in background (should not block UI/logout)
     if (user) {
-      await pushNotificationService.removeToken(user.id);
+      void pushNotificationService.removeToken(user.id).catch(() => {
+        /* ignore */
+      });
     }
     
     // Clear all state first before signOut to ensure clean slate
@@ -193,11 +214,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsAdmin(false);
     setIsLoading(true);
     
-    // Sign out from Supabase (this clears the session from storage)
-    await supabase.auth.signOut({ scope: 'local' });
-    
-    // Reset loading state
-    setIsLoading(false);
+    try {
+      // Sign out locally first (most common case)
+      await supabase.auth.signOut({ scope: 'local' });
+    } catch (e) {
+      console.warn('Local sign out failed:', e);
+    } finally {
+      clearAuthStorage();
+
+      // Defensive: if a session still exists, force a global sign-out.
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) {
+          await supabase.auth.signOut({ scope: 'global' });
+          clearAuthStorage();
+        }
+      } catch (e) {
+        console.warn('Post-logout session check failed:', e);
+      }
+
+      setIsLoading(false);
+    }
   };
 
   return (
