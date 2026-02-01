@@ -179,11 +179,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (user) {
       await pushNotificationService.removeToken(user.id);
     }
-    await supabase.auth.signOut();
+    
+    // Clear all state first before signOut to ensure clean slate
     setUser(null);
     setProfile(null);
     setSession(null);
     setIsAdmin(false);
+    setIsLoading(true);
+    
+    // Sign out from Supabase (this clears the session from storage)
+    await supabase.auth.signOut({ scope: 'local' });
+    
+    // Reset loading state
+    setIsLoading(false);
   };
 
   return (
