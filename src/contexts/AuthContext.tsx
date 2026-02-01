@@ -89,46 +89,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    const hydrate = async (session: Session | null) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (!session?.user) {
+        setProfile(null);
+        setIsAdmin(false);
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
+
+      const [profileData, adminStatus] = await Promise.all([
+        fetchProfile(session.user.id),
+        fetchUserRole(session.user.id),
+      ]);
+
+      setProfile(profileData);
+      setIsAdmin(adminStatus);
+      setIsLoading(false);
+
+      // Push notifications should NOT block auth/UI; run in background.
+      (async () => {
+        try {
+          await pushNotificationService.initialize();
+          const granted = await pushNotificationService.requestPermission();
+          if (granted) {
+            await pushNotificationService.registerToken(session.user.id);
+          }
+        } catch (e) {
+          console.warn('Push notification init failed:', e);
+        }
+      })();
+    };
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-
-        if (session?.user) {
-          // Use setTimeout to avoid potential deadlocks with Supabase
-          setTimeout(async () => {
-            const profileData = await fetchProfile(session.user.id);
-            setProfile(profileData);
-            const adminStatus = await fetchUserRole(session.user.id);
-            setIsAdmin(adminStatus);
-            setIsLoading(false);
-            
-            // Initialize push notifications and register device token
-            await pushNotificationService.initialize();
-            const granted = await pushNotificationService.requestPermission();
-            if (granted) {
-              await pushNotificationService.registerToken(session.user.id);
-            }
-          }, 0);
-        } else {
-          setProfile(null);
-          setIsAdmin(false);
-          setIsLoading(false);
-        }
+      async (_event, session) => {
+        await hydrate(session);
       }
     );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchProfile(session.user.id).then(setProfile);
-        fetchUserRole(session.user.id).then(setIsAdmin);
-      }
-      setIsLoading(false);
+      hydrate(session);
     });
 
     return () => subscription.unsubscribe();

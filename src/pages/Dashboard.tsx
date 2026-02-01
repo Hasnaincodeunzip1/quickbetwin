@@ -46,9 +46,9 @@ export default function Dashboard() {
     totalWinnings: bets.filter(b => b.won).reduce((sum, b) => sum + (Number(b.payout) || 0), 0),
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth', { replace: true });
   };
 
   return (

@@ -9,6 +9,7 @@ import {
   Building2,
   Smartphone
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
 import { 
@@ -20,6 +21,7 @@ import {
   SidebarMenuButton,
   useSidebar
 } from "@/components/ui/sidebar";
+import { useAuth } from "@/contexts/AuthContext";
 
 const navItems = [
   { title: "Dashboard", url: "/admin", icon: LayoutDashboard },
@@ -33,6 +35,13 @@ const navItems = [
 export function AdminSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const navigate = useNavigate();
+  const { logout } = useAuth();
+
+  const handleExitAdmin = async () => {
+    await logout();
+    navigate("/auth", { replace: true });
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border bg-sidebar">
@@ -76,15 +85,15 @@ export function AdminSidebar() {
       </SidebarContent>
 
       <div className="mt-auto p-4 border-t border-border">
-        <NavLink to="/">
-          <Button 
-            variant="ghost" 
-            className={`w-full justify-start gap-3 text-muted-foreground hover:text-foreground ${isCollapsed ? 'px-2' : ''}`}
-          >
-            <LogOut className="h-5 w-5 shrink-0" />
-            {!isCollapsed && <span>Exit Admin</span>}
-          </Button>
-        </NavLink>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={handleExitAdmin}
+          className={`w-full justify-start gap-3 text-muted-foreground hover:text-foreground ${isCollapsed ? 'px-2' : ''}`}
+        >
+          <LogOut className="h-5 w-5 shrink-0" />
+          {!isCollapsed && <span>Exit Admin</span>}
+        </Button>
       </div>
     </Sidebar>
   );
