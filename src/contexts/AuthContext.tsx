@@ -39,6 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const clearAuthStorage = () => {
     // In some mobile WebView / PWA cases, auth storage may not clear reliably.
@@ -109,6 +110,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const hydrate = async (session: Session | null) => {
+      // Skip hydration if we're in the middle of logging out
+      if (isLoggingOut) {
+        return;
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
 
@@ -146,7 +152,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        // Ignore SIGNED_IN events during logout to prevent re-auth
+        if (isLoggingOut && event === 'SIGNED_IN') {
+          return;
+        }
         await hydrate(session);
       }
     );
@@ -157,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [isLoggingOut]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -200,6 +210,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    // Set flag to prevent auth state listener from re-hydrating during logout
+    setIsLoggingOut(true);
+    
     // Remove device token in background (should not block UI/logout)
     if (user) {
       void pushNotificationService.removeToken(user.id).catch(() => {
@@ -207,34 +220,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     }
     
-    // Clear all state first before signOut to ensure clean slate
+    // Clear storage FIRST before anything else
+    clearAuthStorage();
+    
+    // Clear all state
     setUser(null);
     setProfile(null);
     setSession(null);
     setIsAdmin(false);
-    setIsLoading(true);
     
     try {
       // Sign out locally first (most common case)
       await supabase.auth.signOut({ scope: 'local' });
     } catch (e) {
       console.warn('Local sign out failed:', e);
-    } finally {
-      clearAuthStorage();
-
-      // Defensive: if a session still exists, force a global sign-out.
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (data.session) {
-          await supabase.auth.signOut({ scope: 'global' });
-          clearAuthStorage();
-        }
-      } catch (e) {
-        console.warn('Post-logout session check failed:', e);
-      }
-
-      setIsLoading(false);
     }
+    
+    // Clear storage again after signOut
+    clearAuthStorage();
+
+    // Defensive: if a session still exists, force a global sign-out.
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        await supabase.auth.signOut({ scope: 'global' });
+        clearAuthStorage();
+      }
+    } catch (e) {
+      console.warn('Post-logout session check failed:', e);
+    }
+
+    // Reset flags after a small delay to ensure navigation happens first
+    setTimeout(() => {
+      setIsLoggingOut(false);
+      setIsLoading(false);
+    }, 100);
   };
 
   return (
