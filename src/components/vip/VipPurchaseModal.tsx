@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, forwardRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, Check, Loader2, Sparkles, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { VipTier, VipLevel, useVipLevel, getVipLevelIndex } from '@/hooks/useVipLevel';
+import { VipTier, useVipLevel, getVipLevelIndex } from '@/hooks/useVipLevel';
 import { formatCurrency } from '@/lib/formatters';
 
 interface VipPurchaseModalProps {
@@ -12,20 +12,21 @@ interface VipPurchaseModalProps {
   onPurchaseSuccess?: () => void;
 }
 
-export function VipPurchaseModal({ isOpen, onClose, selectedTier, onPurchaseSuccess }: VipPurchaseModalProps) {
-  const { purchaseVip, isPurchasing, currentLevel } = useVipLevel();
+export const VipPurchaseModal = forwardRef<HTMLDivElement, VipPurchaseModalProps>(
+  function VipPurchaseModal({ isOpen, onClose, selectedTier, onPurchaseSuccess }, ref) {
+    const { purchaseVip, isPurchasing, currentLevel } = useVipLevel();
 
-  const handlePurchase = async () => {
-    if (!selectedTier) return;
-    
-    const success = await purchaseVip(selectedTier);
-    if (success) {
-      onPurchaseSuccess?.();
-      onClose();
-    }
-  };
+    const handlePurchase = async () => {
+      if (!selectedTier) return;
+      
+      const success = await purchaseVip(selectedTier);
+      if (success) {
+        onPurchaseSuccess?.();
+        onClose();
+      }
+    };
 
-  if (!selectedTier) return null;
+    if (!selectedTier) return null;
 
   const taxAmount = selectedTier.basePrice * selectedTier.taxRate;
   const isUpgrade = getVipLevelIndex(selectedTier.level) > getVipLevelIndex(currentLevel);
@@ -148,4 +149,4 @@ export function VipPurchaseModal({ isOpen, onClose, selectedTier, onPurchaseSucc
       )}
     </AnimatePresence>
   );
-}
+});
