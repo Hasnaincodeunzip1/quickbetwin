@@ -4,8 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { Phone, ArrowRight, Loader2, ArrowLeft } from 'lucide-react';
+import { Phone, ArrowRight, Loader2, ArrowLeft, Lock } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface PhoneAuthFormProps {
@@ -16,28 +15,21 @@ interface PhoneAuthFormProps {
 export function PhoneAuthForm({ mode, onBack }: PhoneAuthFormProps) {
   const navigate = useNavigate();
   const [phone, setPhone] = useState('');
-  const [otp, setOtp] = useState('');
-  const [step, setStep] = useState<'phone' | 'otp'>('phone');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState('');
 
-  const formatPhoneNumber = (input: string): string => {
-    // Remove all non-digit characters
-    const digits = input.replace(/\D/g, '');
-    
-    // If it starts with country code, keep it; otherwise add +91 for India
-    if (digits.startsWith('91') && digits.length > 10) {
-      return '+' + digits;
-    } else if (digits.length === 10) {
-      return '+91' + digits;
-    }
-    return '+' + digits;
+  // Convert phone to email format for Supabase auth
+  const phoneToEmail = (phoneNumber: string): string => {
+    const digits = phoneNumber.replace(/\D/g, '');
+    return `${digits}@phone.quickbetwin.app`;
   };
 
-  const handleSendOTP = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!phone || phone.length < 10) {
+    if (!phone || phone.length !== 10) {
       toast({
         title: "Invalid Phone Number",
         description: "Please enter a valid 10-digit phone number.",
@@ -46,173 +38,97 @@ export function PhoneAuthForm({ mode, onBack }: PhoneAuthFormProps) {
       return;
     }
 
-    setLoading(true);
-
-    const formattedPhone = formatPhoneNumber(phone);
-
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: formattedPhone,
-        options: {
-          data: mode === 'signup' ? { name: name || 'Player' } : undefined
-        }
-      });
-
-      if (error) {
-        throw error;
-      }
-
+    if (!password || password.length < 6) {
       toast({
-        title: "OTP Sent!",
-        description: `We've sent a verification code to ${formattedPhone}`
-      });
-      setStep('otp');
-    } catch (error: any) {
-      console.error('OTP send error:', error);
-      toast({
-        title: "Failed to Send OTP",
-        description: error.message || "Could not send verification code. Please try again.",
+        title: "Invalid Password",
+        description: "Password must be at least 6 characters.",
         variant: "destructive"
       });
-    } finally {
-      setLoading(false);
+      return;
     }
-  };
 
-  const handleVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (otp.length !== 6) {
+    if (mode === 'signup' && password !== confirmPassword) {
       toast({
-        title: "Invalid OTP",
-        description: "Please enter the 6-digit verification code.",
+        title: "Passwords Don't Match",
+        description: "Please make sure both passwords match.",
         variant: "destructive"
       });
       return;
     }
 
     setLoading(true);
-
-    const formattedPhone = formatPhoneNumber(phone);
+    const email = phoneToEmail(phone);
 
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
-        phone: formattedPhone,
-        token: otp,
-        type: 'sms'
-      });
+      if (mode === 'signup') {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              name: name || 'Player',
+              phone: `+91${phone}`
+            }
+          }
+        });
 
-      if (error) {
-        throw error;
+        if (error) {
+          if (error.message.includes('already registered')) {
+            toast({
+              title: "Account Exists",
+              description: "This phone number is already registered. Please login instead.",
+              variant: "destructive"
+            });
+          } else {
+            throw error;
+          }
+          return;
+        }
+
+        toast({
+          title: "Account Created!",
+          description: "Your account has been created successfully."
+        });
+        navigate('/dashboard');
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
+
+        if (error) {
+          if (error.message.includes('Invalid login credentials')) {
+            toast({
+              title: "Login Failed",
+              description: "Invalid phone number or password.",
+              variant: "destructive"
+            });
+          } else {
+            throw error;
+          }
+          return;
+        }
+
+        toast({
+          title: "Welcome Back!",
+          description: "You've successfully logged in."
+        });
+        navigate('/dashboard');
       }
-
-      toast({
-        title: mode === 'signup' ? "Account Created!" : "Welcome Back!",
-        description: mode === 'signup' 
-          ? "Your account has been created successfully."
-          : "You've successfully logged in."
-      });
-      navigate('/dashboard');
     } catch (error: any) {
-      console.error('OTP verify error:', error);
+      console.error('Auth error:', error);
       toast({
-        title: "Verification Failed",
-        description: error.message || "Invalid OTP. Please try again.",
+        title: "Authentication Failed",
+        description: error.message || "Something went wrong. Please try again.",
         variant: "destructive"
       });
     } finally {
       setLoading(false);
     }
   };
-
-  const handleResendOTP = async () => {
-    setLoading(true);
-    const formattedPhone = formatPhoneNumber(phone);
-
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        phone: formattedPhone
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "OTP Resent!",
-        description: `A new verification code has been sent to ${formattedPhone}`
-      });
-    } catch (error: any) {
-      toast({
-        title: "Failed to Resend",
-        description: error.message || "Could not resend OTP. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (step === 'otp') {
-    return (
-      <form onSubmit={handleVerifyOTP} className="space-y-4">
-        <div className="text-center mb-4">
-          <p className="text-sm text-muted-foreground">
-            Enter the 6-digit code sent to<br />
-            <strong className="text-foreground">{formatPhoneNumber(phone)}</strong>
-          </p>
-        </div>
-
-        <div className="flex justify-center">
-          <InputOTP maxLength={6} value={otp} onChange={setOtp}>
-            <InputOTPGroup>
-              <InputOTPSlot index={0} />
-              <InputOTPSlot index={1} />
-              <InputOTPSlot index={2} />
-              <InputOTPSlot index={3} />
-              <InputOTPSlot index={4} />
-              <InputOTPSlot index={5} />
-            </InputOTPGroup>
-          </InputOTP>
-        </div>
-
-        <Button
-          type="submit"
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground glow-primary"
-          disabled={loading || otp.length !== 6}
-        >
-          {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <>
-              Verify & Continue
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </>
-          )}
-        </Button>
-
-        <div className="flex justify-between items-center text-sm">
-          <button
-            type="button"
-            onClick={() => setStep('phone')}
-            className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Change Number
-          </button>
-          <button
-            type="button"
-            onClick={handleResendOTP}
-            disabled={loading}
-            className="text-primary hover:underline"
-          >
-            Resend OTP
-          </button>
-        </div>
-      </form>
-    );
-  }
 
   return (
-    <form onSubmit={handleSendOTP} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
       {mode === 'signup' && (
         <div className="space-y-2">
           <Label htmlFor="phone-name">Display Name (optional)</Label>
@@ -242,21 +158,54 @@ export function PhoneAuthForm({ mode, onBack }: PhoneAuthFormProps) {
             maxLength={10}
           />
         </div>
-        <p className="text-xs text-muted-foreground">
-          We'll send you a 6-digit verification code
-        </p>
       </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="phone-password">Password</Label>
+        <div className="relative">
+          <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            id="phone-password"
+            type="password"
+            placeholder="Enter your password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="pl-10 bg-secondary border-border"
+            required
+            minLength={6}
+          />
+        </div>
+      </div>
+
+      {mode === 'signup' && (
+        <div className="space-y-2">
+          <Label htmlFor="phone-confirm-password">Confirm Password</Label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              id="phone-confirm-password"
+              type="password"
+              placeholder="Confirm your password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="pl-10 bg-secondary border-border"
+              required
+              minLength={6}
+            />
+          </div>
+        </div>
+      )}
 
       <Button
         type="submit"
         className="w-full bg-primary hover:bg-primary/90 text-primary-foreground glow-primary"
-        disabled={loading || phone.length !== 10}
+        disabled={loading || phone.length !== 10 || password.length < 6}
       >
         {loading ? (
           <Loader2 className="w-4 h-4 animate-spin" />
         ) : (
           <>
-            Send OTP
+            {mode === 'signup' ? 'Create Account' : 'Login'}
             <ArrowRight className="w-4 h-4 ml-2" />
           </>
         )}
