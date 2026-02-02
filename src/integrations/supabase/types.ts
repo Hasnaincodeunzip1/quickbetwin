@@ -223,6 +223,53 @@ export type Database = {
         }
         Relationships: []
       }
+      lottery_draws: {
+        Row: {
+          created_at: string
+          draw_date: string | null
+          id: string
+          name: string
+          prize_amount: number
+          status: string
+          updated_at: string
+          vip_level: Database["public"]["Enums"]["vip_level"]
+          winner_ticket_id: string | null
+          winner_user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          draw_date?: string | null
+          id?: string
+          name: string
+          prize_amount: number
+          status?: string
+          updated_at?: string
+          vip_level: Database["public"]["Enums"]["vip_level"]
+          winner_ticket_id?: string | null
+          winner_user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          draw_date?: string | null
+          id?: string
+          name?: string
+          prize_amount?: number
+          status?: string
+          updated_at?: string
+          vip_level?: Database["public"]["Enums"]["vip_level"]
+          winner_ticket_id?: string | null
+          winner_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lottery_draws_winner_ticket_id_fkey"
+            columns: ["winner_ticket_id"]
+            isOneToOne: false
+            referencedRelation: "lottery_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lottery_tickets: {
         Row: {
           created_at: string
@@ -231,6 +278,7 @@ export type Database = {
           is_used: boolean | null
           ticket_number: string
           user_id: string
+          vip_level: Database["public"]["Enums"]["vip_level"]
         }
         Insert: {
           created_at?: string
@@ -239,6 +287,7 @@ export type Database = {
           is_used?: boolean | null
           ticket_number: string
           user_id: string
+          vip_level?: Database["public"]["Enums"]["vip_level"]
         }
         Update: {
           created_at?: string
@@ -247,6 +296,7 @@ export type Database = {
           is_used?: boolean | null
           ticket_number?: string
           user_id?: string
+          vip_level?: Database["public"]["Enums"]["vip_level"]
         }
         Relationships: []
       }
@@ -261,6 +311,7 @@ export type Database = {
           referred_by: string | null
           status: string | null
           updated_at: string
+          vip_level: Database["public"]["Enums"]["vip_level"]
         }
         Insert: {
           avatar_url?: string | null
@@ -272,6 +323,7 @@ export type Database = {
           referred_by?: string | null
           status?: string | null
           updated_at?: string
+          vip_level?: Database["public"]["Enums"]["vip_level"]
         }
         Update: {
           avatar_url?: string | null
@@ -283,28 +335,35 @@ export type Database = {
           referred_by?: string | null
           status?: string | null
           updated_at?: string
+          vip_level?: Database["public"]["Enums"]["vip_level"]
         }
         Relationships: []
       }
       referrals: {
         Row: {
           bonus: number
+          bonus_claimed: boolean
           created_at: string
           id: string
+          referred_deposited: boolean
           referred_user_id: string
           referrer_id: string
         }
         Insert: {
           bonus?: number
+          bonus_claimed?: boolean
           created_at?: string
           id?: string
+          referred_deposited?: boolean
           referred_user_id: string
           referrer_id: string
         }
         Update: {
           bonus?: number
+          bonus_claimed?: boolean
           created_at?: string
           id?: string
+          referred_deposited?: boolean
           referred_user_id?: string
           referrer_id?: string
         }
@@ -385,6 +444,36 @@ export type Database = {
         }
         Relationships: []
       }
+      vip_purchases: {
+        Row: {
+          base_price: number
+          created_at: string
+          id: string
+          tax_amount: number
+          total_paid: number
+          user_id: string
+          vip_level: Database["public"]["Enums"]["vip_level"]
+        }
+        Insert: {
+          base_price: number
+          created_at?: string
+          id?: string
+          tax_amount: number
+          total_paid: number
+          user_id: string
+          vip_level: Database["public"]["Enums"]["vip_level"]
+        }
+        Update: {
+          base_price?: number
+          created_at?: string
+          id?: string
+          tax_amount?: number
+          total_paid?: number
+          user_id?: string
+          vip_level?: Database["public"]["Enums"]["vip_level"]
+        }
+        Relationships: []
+      }
       wallets: {
         Row: {
           balance: number
@@ -441,6 +530,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      vip_level: "none" | "bronze" | "silver" | "gold" | "platinum" | "diamond"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -569,6 +659,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      vip_level: ["none", "bronze", "silver", "gold", "platinum", "diamond"],
     },
   },
 } as const

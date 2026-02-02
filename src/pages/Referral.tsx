@@ -3,10 +3,12 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useReferrals } from '@/hooks/useReferrals';
+import { useVipLevel, VIP_TIERS, getVipTier } from '@/hooks/useVipLevel';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { 
   Wallet, 
   Gamepad2, 
@@ -22,17 +24,19 @@ import {
   Sparkles,
   CheckCircle2,
   Crown,
-  Loader2
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
-// Lottery ticket milestones - users get tickets at these referral counts
-const LOTTERY_MILESTONES = [3, 5, 7, 10, 15, 20, 30, 50];
+// Lottery ticket milestones - users get tickets at these referral counts (only counted after VIP + deposit)
+const LOTTERY_MILESTONES = [2, 5, 10, 15, 25, 50];
 
 export default function Referral() {
   const navigate = useNavigate();
   const { isAuthenticated, profile, isLoading: authLoading } = useAuth();
-  const { referrals, lotteryTickets, totalReferrals, totalEarned, isLoading: referralsLoading } = useReferrals();
+  const { referrals, lotteryTickets, totalReferrals, totalEarned, isLoading: referralsLoading, qualifiedReferrals } = useReferrals();
+  const { currentLevel, currentTier } = useVipLevel();
   const [showLotteryModal, setShowLotteryModal] = useState(false);
 
   useEffect(() => {
@@ -42,13 +46,16 @@ export default function Referral() {
   }, [isAuthenticated, authLoading, navigate]);
 
   const referralCode = profile?.referral_code || 'LOADING...';
-  const referralLink = `https://colorwin.app/ref/${referralCode}`;
+  const referralLink = `https://genxwin.app/ref/${referralCode}`;
   
-  // Calculate lottery tickets earned based on milestones
+  const hasVip = currentLevel !== 'none';
+  const referralBonus = currentTier?.referralBonus || 0;
+  
+  // Calculate lottery tickets based on qualified referrals (deposited)
   const ticketsEarned = lotteryTickets.length;
-  const nextMilestone = LOTTERY_MILESTONES.find(m => totalReferrals < m) || LOTTERY_MILESTONES[LOTTERY_MILESTONES.length - 1];
-  const progressToNext = totalReferrals >= nextMilestone ? 100 : (totalReferrals / nextMilestone) * 100;
-  const referralsNeeded = Math.max(0, nextMilestone - totalReferrals);
+  const nextMilestone = LOTTERY_MILESTONES.find(m => qualifiedReferrals < m) || LOTTERY_MILESTONES[LOTTERY_MILESTONES.length - 1];
+  const progressToNext = qualifiedReferrals >= nextMilestone ? 100 : (qualifiedReferrals / nextMilestone) * 100;
+  const referralsNeeded = Math.max(0, nextMilestone - qualifiedReferrals);
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -62,8 +69,8 @@ export default function Referral() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Join ColorWin',
-          text: `Use my referral code ${referralCode} and get ₹100 bonus!`,
+          title: 'Join GenXWIN',
+          text: `Use my referral code ${referralCode} and start winning!`,
           url: referralLink,
         });
       } catch (err) {
@@ -92,21 +99,47 @@ export default function Referral() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
+        {/* VIP Warning Banner */}
+        {!hasVip && (
+          <Card className="game-card border-yellow-500/50 bg-yellow-500/10">
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3">
+                <AlertCircle className="w-6 h-6 text-yellow-500 shrink-0" />
+                <div>
+                  <p className="font-semibold text-yellow-600 dark:text-yellow-400">VIP Required</p>
+                  <p className="text-sm text-muted-foreground">
+                    Purchase a VIP level to start earning referral rewards and lottery tickets!
+                  </p>
+                </div>
+              </div>
+              <Button 
+                onClick={() => navigate('/dashboard')}
+                className="w-full mt-3 bg-yellow-500 hover:bg-yellow-600 text-black"
+              >
+                <Crown className="w-4 h-4 mr-2" />
+                Get VIP Now
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Hero Banner */}
         <Card className="game-card overflow-hidden relative">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-accent/10 to-primary/5" />
           <div className="absolute top-2 right-2">
-            <motion.div
-              animate={{ rotate: [0, 10, -10, 0] }}
-              transition={{ repeat: Infinity, duration: 2 }}
-            >
-              <Crown className="w-8 h-8 text-yellow-500" />
-            </motion.div>
+            {hasVip && currentTier && (
+              <Badge className={`bg-gradient-to-r ${currentTier.color} text-white border-0`}>
+                {currentTier.icon} {currentTier.name}
+              </Badge>
+            )}
           </div>
           <CardContent className="relative pt-6 pb-4">
             <h2 className="text-2xl font-bold mb-1">Invite & Earn!</h2>
             <p className="text-muted-foreground text-sm mb-4">
-              Get ₹100 for every friend + unlock lottery tickets!
+              {hasVip 
+                ? `Get ${formatCurrency(referralBonus)} for every friend who deposits!`
+                : 'Get VIP to unlock referral rewards!'
+              }
             </p>
             <div className="flex items-center gap-4">
               <div className="flex -space-x-2">
@@ -117,7 +150,7 @@ export default function Referral() {
                 ))}
               </div>
               <span className="text-sm text-muted-foreground">
-                {totalReferrals} friends joined
+                {totalReferrals} friends joined ({qualifiedReferrals} deposited)
               </span>
             </div>
           </CardContent>
@@ -127,8 +160,8 @@ export default function Referral() {
         <div className="grid grid-cols-3 gap-3">
           <Card className="game-card p-4 text-center">
             <Users className="w-6 h-6 mx-auto mb-2 text-primary" />
-            <p className="text-2xl font-bold">{totalReferrals}</p>
-            <p className="text-xs text-muted-foreground">Total Referrals</p>
+            <p className="text-2xl font-bold">{qualifiedReferrals}</p>
+            <p className="text-xs text-muted-foreground">Qualified</p>
           </Card>
           <Card className="game-card p-4 text-center">
             <Gift className="w-6 h-6 mx-auto mb-2 text-game-green" />
@@ -144,63 +177,65 @@ export default function Referral() {
         </div>
 
         {/* Lottery Ticket Progress */}
-        <Card className="game-card overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 via-orange-500/5 to-red-500/5" />
-          <CardHeader className="pb-2 relative">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-yellow-500" />
-              Lottery Ticket Progress
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="relative space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span>{totalReferrals} referrals</span>
-                <span className="text-muted-foreground">Next ticket at {nextMilestone}</span>
-              </div>
-              <Progress value={progressToNext} className="h-3 bg-secondary" />
-              {referralsNeeded > 0 && (
-                <p className="text-xs text-muted-foreground text-center">
-                  🎟️ {referralsNeeded} more referral{referralsNeeded > 1 ? 's' : ''} to unlock next lottery ticket!
-                </p>
-              )}
-            </div>
-
-            {/* Milestone Track */}
-            <div className="flex justify-between items-center py-2">
-              {LOTTERY_MILESTONES.slice(0, 5).map((milestone) => (
-                <div key={milestone} className="flex flex-col items-center">
-                  <motion.div
-                    initial={false}
-                    animate={totalReferrals >= milestone ? { scale: [1, 1.2, 1] } : {}}
-                    className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
-                      totalReferrals >= milestone 
-                        ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white' 
-                        : 'bg-secondary text-muted-foreground'
-                    }`}
-                  >
-                    {totalReferrals >= milestone ? (
-                      <CheckCircle2 className="w-5 h-5" />
-                    ) : (
-                      milestone
-                    )}
-                  </motion.div>
-                  <span className="text-xs mt-1 text-muted-foreground">{milestone}</span>
+        {hasVip && (
+          <Card className="game-card overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/5 via-orange-500/5 to-red-500/5" />
+            <CardHeader className="pb-2 relative">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-yellow-500" />
+                Lottery Ticket Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="relative space-y-4">
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>{qualifiedReferrals} qualified referrals</span>
+                  <span className="text-muted-foreground">Next ticket at {nextMilestone}</span>
                 </div>
-              ))}
-            </div>
+                <Progress value={progressToNext} className="h-3 bg-secondary" />
+                {referralsNeeded > 0 && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    🎟️ {referralsNeeded} more referral{referralsNeeded > 1 ? 's' : ''} (who deposit) to unlock next ticket!
+                  </p>
+                )}
+              </div>
 
-            {ticketsEarned > 0 && (
-              <Button 
-                onClick={() => setShowLotteryModal(true)}
-                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:opacity-90 text-white"
-              >
-                <Ticket className="w-4 h-4 mr-2" />
-                View My {ticketsEarned} Lottery Ticket{ticketsEarned > 1 ? 's' : ''}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+              {/* Milestone Track */}
+              <div className="flex justify-between items-center py-2">
+                {LOTTERY_MILESTONES.slice(0, 5).map((milestone) => (
+                  <div key={milestone} className="flex flex-col items-center">
+                    <motion.div
+                      initial={false}
+                      animate={qualifiedReferrals >= milestone ? { scale: [1, 1.2, 1] } : {}}
+                      className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold ${
+                        qualifiedReferrals >= milestone 
+                          ? 'bg-gradient-to-br from-yellow-400 to-orange-500 text-white' 
+                          : 'bg-secondary text-muted-foreground'
+                      }`}
+                    >
+                      {qualifiedReferrals >= milestone ? (
+                        <CheckCircle2 className="w-5 h-5" />
+                      ) : (
+                        milestone
+                      )}
+                    </motion.div>
+                    <span className="text-xs mt-1 text-muted-foreground">{milestone}</span>
+                  </div>
+                ))}
+              </div>
+
+              {ticketsEarned > 0 && (
+                <Button 
+                  onClick={() => setShowLotteryModal(true)}
+                  className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:opacity-90 text-white"
+                >
+                  <Ticket className="w-4 h-4 mr-2" />
+                  View My {ticketsEarned} Lottery Ticket{ticketsEarned > 1 ? 's' : ''}
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Referral Code & Link */}
         <Card className="game-card">
@@ -304,10 +339,11 @@ export default function Referral() {
           <CardContent>
             <div className="space-y-4">
               {[
+                { icon: Crown, title: 'Get VIP First', desc: 'Purchase Bronze, Silver, Gold, Platinum or Diamond' },
                 { icon: Share2, title: 'Share Your Code', desc: 'Send your referral link to friends' },
                 { icon: Users, title: 'Friend Signs Up', desc: 'They register using your code' },
-                { icon: Gift, title: 'Both Get ₹100', desc: 'Instant bonus for both of you!' },
-                { icon: Ticket, title: 'Unlock Lottery', desc: 'Get tickets at 3, 5, 7+ referrals' },
+                { icon: Gift, title: 'They Deposit', desc: `You get ${hasVip ? formatCurrency(referralBonus) : 'VIP bonus'} when they deposit!` },
+                { icon: Ticket, title: 'Unlock Lottery', desc: 'Get tickets at 2, 5, 10+ qualified referrals' },
               ].map((step, index) => (
                 <div key={index} className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">

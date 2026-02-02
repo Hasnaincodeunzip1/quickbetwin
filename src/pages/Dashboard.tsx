@@ -7,6 +7,8 @@ import { useUserBets } from '@/hooks/useUserBets';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { VipSection } from '@/components/vip/VipSection';
+import { WinLossPopups } from '@/components/dashboard/WinLossPopups';
 import { 
   Wallet, 
   ArrowUpCircle, 
@@ -53,12 +55,15 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
+      {/* Win/Loss Popups */}
+      <WinLossPopups />
+      
       {/* Header */}
       <header className="sticky top-0 z-50 glass border-b border-border">
         <div className="container max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold">
-            <span className="text-game-red">Color</span>
-            <span className="text-game-green">Win</span>
+            <span className="text-game-red">GenX</span>
+            <span className="text-game-green">WIN</span>
           </h1>
           <button 
             onClick={handleLogout}
@@ -180,6 +185,15 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+        </motion.div>
+
+        {/* VIP Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+        >
+          <VipSection />
         </motion.div>
 
         {/* Recent Bets */}

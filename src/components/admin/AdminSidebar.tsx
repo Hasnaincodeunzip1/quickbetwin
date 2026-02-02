@@ -7,7 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Building2,
-  Smartphone
+  Smartphone,
+  Ticket
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
@@ -30,6 +31,7 @@ const navItems = [
   { title: "Bank Accounts", url: "/admin/bank-accounts", icon: Building2 },
   { title: "UPI Accounts", url: "/admin/upi-accounts", icon: Smartphone },
   { title: "Game Control", url: "/admin/game-control", icon: Gamepad2 },
+  { title: "Lottery", url: "/admin/lottery", icon: Ticket },
 ];
 
 export function AdminSidebar() {

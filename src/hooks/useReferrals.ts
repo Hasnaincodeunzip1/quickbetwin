@@ -8,6 +8,8 @@ interface Referral {
   bonus: number;
   created_at: string;
   referred_name?: string;
+  referred_deposited: boolean;
+  bonus_claimed: boolean;
 }
 
 interface LotteryTicket {
@@ -121,12 +123,14 @@ export function useReferrals() {
   }, [user]);
 
   const totalReferrals = referrals.length;
-  const totalEarned = referrals.reduce((sum, r) => sum + Number(r.bonus), 0);
+  const qualifiedReferrals = referrals.filter(r => r.referred_deposited).length;
+  const totalEarned = referrals.filter(r => r.bonus_claimed).reduce((sum, r) => sum + Number(r.bonus), 0);
 
   return {
     referrals,
     lotteryTickets,
     totalReferrals,
+    qualifiedReferrals,
     totalEarned,
     isLoading
   };
