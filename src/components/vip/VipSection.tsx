@@ -22,9 +22,9 @@ export function VipSection() {
 
   return (
     <>
-      <Card className="game-card overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-transparent to-purple-500/5" />
-        <CardHeader className="relative pb-2">
+      <Card className="game-card overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-yellow-500/5 via-transparent to-purple-500/5 pointer-events-none z-0" />
+        <CardHeader className="relative z-10 pb-2">
           <CardTitle className="text-sm flex items-center gap-2">
             <Crown className="w-4 h-4 text-yellow-500" />
             VIP Membership
@@ -35,7 +35,7 @@ export function VipSection() {
             )}
           </CardTitle>
         </CardHeader>
-        <CardContent className="relative space-y-4">
+        <CardContent className="relative z-10 space-y-4">
           {currentLevel === 'none' && (
             <div className="text-center py-2 px-4 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
               <p className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
