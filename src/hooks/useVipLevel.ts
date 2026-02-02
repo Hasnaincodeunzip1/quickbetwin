@@ -54,53 +54,25 @@ export function useVipLevel() {
     setIsPurchasing(true);
     
     try {
-      // Check wallet balance
-      const { data: wallet, error: walletError } = await supabase
-        .from('wallets')
-        .select('balance')
-        .eq('user_id', user.id)
-        .single();
+      // Call the database function to handle purchase atomically
+      const { error } = await supabase.rpc('purchase_vip', {
+        p_vip_level: tier.level,
+        p_base_price: tier.basePrice,
+        p_tax_amount: tier.basePrice * tier.taxRate,
+        p_total_price: tier.totalPrice
+      });
 
-      if (walletError) throw walletError;
-      
-      const balance = Number(wallet.balance);
-      if (balance < tier.totalPrice) {
-        toast({
-          title: "Insufficient Balance",
-          description: `You need ₹${tier.totalPrice} to purchase ${tier.name} VIP. Current balance: ₹${balance}`,
-          variant: "destructive"
-        });
-        return false;
+      if (error) {
+        if (error.message.includes('Insufficient balance')) {
+          toast({
+            title: "Insufficient Balance",
+            description: `You need ₹${tier.totalPrice} to purchase ${tier.name} VIP.`,
+            variant: "destructive"
+          });
+          return false;
+        }
+        throw error;
       }
-
-      // Create VIP purchase record
-      const { error: purchaseError } = await supabase
-        .from('vip_purchases')
-        .insert({
-          user_id: user.id,
-          vip_level: tier.level,
-          base_price: tier.basePrice,
-          tax_amount: tier.basePrice * tier.taxRate,
-          total_paid: tier.totalPrice
-        });
-
-      if (purchaseError) throw purchaseError;
-
-      // Update profile VIP level
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ vip_level: tier.level })
-        .eq('id', user.id);
-
-      if (profileError) throw profileError;
-
-      // Deduct from wallet
-      const { error: deductError } = await supabase
-        .from('wallets')
-        .update({ balance: balance - tier.totalPrice })
-        .eq('user_id', user.id);
-
-      if (deductError) throw deductError;
 
       // Refresh profile to get updated VIP level
       await refreshProfile?.();

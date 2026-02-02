@@ -527,6 +527,15 @@ export type Database = {
         Args: { account_id: string }
         Returns: undefined
       }
+      purchase_vip: {
+        Args: {
+          p_base_price: number
+          p_tax_amount: number
+          p_total_price: number
+          p_vip_level: Database["public"]["Enums"]["vip_level"]
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
