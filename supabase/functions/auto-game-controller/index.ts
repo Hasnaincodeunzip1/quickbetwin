@@ -109,6 +109,25 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if auto game controller is enabled
+    const { data: setting } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "auto_game_controller")
+      .single();
+
+    const isEnabled = setting?.value?.enabled ?? true;
+
+    if (!isEnabled) {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: "Auto game controller is disabled",
+        enabled: false 
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     
     const results: Record<string, string> = {};
     const now = new Date();

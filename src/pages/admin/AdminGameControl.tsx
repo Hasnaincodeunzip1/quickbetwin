@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   Gamepad2, 
@@ -11,12 +11,15 @@ import {
   Lock,
   XCircle,
   RefreshCw,
-  Loader2
+  Loader2,
+  Bot,
+  Power
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
 import {
   Table,
   TableBody,
@@ -34,6 +37,8 @@ import {
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/formatters";
 import { useAdminGameRounds, GameType } from "@/hooks/useAdminGameRounds";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "@/hooks/use-toast";
 
 const GAME_TYPES: { id: GameType; name: string; icon: string }[] = [
   { id: 'color', name: 'Color Prediction', icon: '🎨' },
@@ -396,6 +401,62 @@ function GameControlPanel({ gameType }: { gameType: GameType }) {
 
 export default function AdminGameControl() {
   const [selectedGame, setSelectedGame] = useState<GameType>('color');
+  const [autoControllerEnabled, setAutoControllerEnabled] = useState(true);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+
+  useEffect(() => {
+    fetchAutoControllerSetting();
+  }, []);
+
+  const fetchAutoControllerSetting = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'auto_game_controller')
+        .single();
+
+      if (error) throw error;
+      const value = data?.value as { enabled?: boolean } | null;
+      setAutoControllerEnabled(value?.enabled ?? true);
+    } catch (error) {
+      console.error('Failed to fetch auto controller setting:', error);
+    } finally {
+      setIsLoadingSettings(false);
+    }
+  };
+
+  const toggleAutoController = async () => {
+    setIsUpdatingSettings(true);
+    const newValue = !autoControllerEnabled;
+
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .update({ value: { enabled: newValue } })
+        .eq('key', 'auto_game_controller');
+
+      if (error) throw error;
+
+      setAutoControllerEnabled(newValue);
+      toast({
+        title: newValue ? "Auto Controller Enabled" : "Auto Controller Disabled",
+        description: newValue 
+          ? "Games will now run automatically 24/7 with profit-optimized results." 
+          : "Automatic game rounds have been paused. You can manually control rounds below.",
+      });
+    } catch (error: any) {
+      console.error('Failed to update auto controller setting:', error);
+      toast({
+        title: "Update Failed",
+        description: error.message || "Could not update the setting. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUpdatingSettings(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -403,6 +464,68 @@ export default function AdminGameControl() {
         <h1 className="text-3xl font-bold">Game Control</h1>
         <p className="text-muted-foreground">Create rounds, set results, and manage betting periods</p>
       </div>
+
+      {/* Auto Controller Toggle */}
+      <Card className={`game-card border-2 transition-colors ${autoControllerEnabled ? 'border-green-500/50 bg-green-500/5' : 'border-muted'}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`p-2 rounded-lg ${autoControllerEnabled ? 'bg-green-500/20' : 'bg-muted'}`}>
+                <Bot className={`w-6 h-6 ${autoControllerEnabled ? 'text-green-500' : 'text-muted-foreground'}`} />
+              </div>
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  Auto Game Controller
+                  {autoControllerEnabled && (
+                    <Badge className="bg-green-500 text-white animate-pulse">
+                      <Power className="w-3 h-3 mr-1" />
+                      ACTIVE
+                    </Badge>
+                  )}
+                </CardTitle>
+                <CardDescription>
+                  {autoControllerEnabled 
+                    ? "Games are running automatically 24/7 with profit-optimized results"
+                    : "Automatic game rounds are paused. Manual control is active."
+                  }
+                </CardDescription>
+              </div>
+            </div>
+            {isLoadingSettings ? (
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            ) : (
+              <Switch
+                checked={autoControllerEnabled}
+                onCheckedChange={toggleAutoController}
+                disabled={isUpdatingSettings}
+                className="data-[state=checked]:bg-green-500"
+              />
+            )}
+          </div>
+        </CardHeader>
+        {autoControllerEnabled && (
+          <CardContent className="pt-0">
+            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <span>Runs every minute</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <span>All 6 game types</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <span>Profit-maximized results</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                <span>Auto payouts</span>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
 
       <Tabs value={selectedGame} onValueChange={(v) => setSelectedGame(v as GameType)}>
         <TabsList className="grid grid-cols-3 lg:grid-cols-6 h-auto gap-1">
