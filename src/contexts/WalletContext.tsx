@@ -115,48 +115,19 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      
-      if (sessionError) {
-        console.error('Error getting session:', sessionError);
-        return;
-      }
-      
-      const token = sessionData?.session?.access_token;
+      const { data, error } = await supabase.functions.invoke('get-deposit-accounts', {
+        method: 'GET',
+      });
 
-      if (!token) {
-        console.error('No auth token available for fetching deposit accounts');
+      if (error) {
+        console.error('Error fetching deposit accounts:', error);
         return;
       }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      if (!supabaseUrl) {
-        console.error('VITE_SUPABASE_URL is not defined');
-        return;
+      if (data) {
+        setDepositBankAccount(data.bankAccount);
+        setDepositUPIAccount(data.upiAccount);
       }
-
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/get-deposit-accounts`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '',
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorBody = await response.text();
-        console.error('Error fetching deposit accounts:', response.status, response.statusText, errorBody);
-        return;
-      }
-
-      const data = await response.json();
-      console.log('Deposit accounts fetched:', data);
-      setDepositBankAccount(data.bankAccount);
-      setDepositUPIAccount(data.upiAccount);
     } catch (error) {
       console.error('Error fetching deposit accounts:', error);
       setDepositBankAccount(null);
