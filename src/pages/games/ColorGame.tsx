@@ -38,22 +38,6 @@ export default function ColorGame() {
   const [lastResult, setLastResult] = useState<GameColor | null>(null);
   const [showResult, setShowResult] = useState(false);
 
-  useEffect(() => {
-    // Only redirect after loading is complete AND we've confirmed no user
-    if (!isLoading && !isAuthenticated) {
-      navigate('/auth', { replace: true });
-    }
-  }, [isAuthenticated, isLoading, navigate]);
-
-  // Show loading state while auth is being determined
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
-      </div>
-    );
-  }
-
   // Fetch existing bet for current round
   useEffect(() => {
     if (currentRound) {
@@ -97,6 +81,27 @@ export default function ColorGame() {
       }, 3000);
     }
   }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+
+  // Auth redirect - must be after all hooks
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      navigate('/auth', { replace: true });
+    }
+  }, [isAuthenticated, isLoading, navigate]);
+
+  // Show loading state while auth is being determined
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  // Not authenticated
+  if (!isAuthenticated) {
+    return null;
+  }
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

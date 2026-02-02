@@ -39,6 +39,48 @@ export default function NumberGame() {
   const [showResult, setShowResult] = useState(false);
 
   useEffect(() => {
+    if (currentRound) {
+      fetchBetForRound(currentRound.id);
+    } else {
+      clearCurrentBet();
+      setLocalBet(null);
+      setSelectedNumber(null);
+    }
+  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+
+  useEffect(() => {
+    if (recentResults.length > 0 && recentResults[0].result) {
+      const result = parseInt(recentResults[0].result);
+      setLastResult(result);
+      setShowResult(true);
+
+      if (localBet && localBet.number === result) {
+        const winAmount = localBet.amount * 9;
+        toast({
+          title: "🎉 JACKPOT!",
+          description: `Number ${result} hit! You won ₹${winAmount}`,
+        });
+        refetchBalance();
+      } else if (localBet) {
+        toast({
+          title: "Not your number!",
+          description: `Result was ${result}. Better luck next time!`,
+          variant: "destructive",
+        });
+      }
+
+      setTimeout(() => {
+        setShowResult(false);
+        setLocalBet(null);
+        clearCurrentBet();
+        setSelectedNumber(null);
+        refetchBalance();
+      }, 3000);
+    }
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+
+  // Auth redirect - must be after all hooks
+  useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate('/auth', { replace: true });
     }
@@ -52,15 +94,9 @@ export default function NumberGame() {
     );
   }
 
-  useEffect(() => {
-    if (currentRound) {
-      fetchBetForRound(currentRound.id);
-    } else {
-      clearCurrentBet();
-      setLocalBet(null);
-      setSelectedNumber(null);
-    }
-  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+  if (!isAuthenticated) {
+    return null;
+  }
 
   useEffect(() => {
     if (recentResults.length > 0 && recentResults[0].result) {
