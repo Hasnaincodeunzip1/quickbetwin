@@ -39,10 +39,20 @@ export default function ColorGame() {
   const [showResult, setShowResult] = useState(false);
 
   useEffect(() => {
+    // Only redirect after loading is complete AND we've confirmed no user
     if (!isLoading && !isAuthenticated) {
-      navigate('/auth');
+      navigate('/auth', { replace: true });
     }
   }, [isAuthenticated, isLoading, navigate]);
+
+  // Show loading state while auth is being determined
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   // Fetch existing bet for current round
   useEffect(() => {
