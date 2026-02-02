@@ -81,7 +81,7 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
         >
           <Card className="game-card overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10 pointer-events-none" />
             <CardContent className="relative pt-6">
               <p className="text-muted-foreground text-sm">Welcome back,</p>
               <p className="text-lg font-semibold mb-4">{displayName}</p>
