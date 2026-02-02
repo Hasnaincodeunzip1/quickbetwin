@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if auto game controller is enabled
+    // Check if auto game controller is enabled and get settings
     const { data: setting } = await supabase
       .from("app_settings")
       .select("value")
@@ -118,6 +118,7 @@ Deno.serve(async (req) => {
       .single();
 
     const isEnabled = setting?.value?.enabled ?? true;
+    const configuredDurations = setting?.value?.durations as Record<string, number> | undefined;
 
     if (!isEnabled) {
       return new Response(JSON.stringify({ 
@@ -131,6 +132,11 @@ Deno.serve(async (req) => {
     
     const results: Record<string, string> = {};
     const now = new Date();
+
+    // Helper to get configured duration or fallback to default
+    const getDuration = (gameType: string): number => {
+      return configuredDurations?.[gameType] ?? GAME_CONFIG[gameType].duration;
+    };
 
     for (const [gameType, config] of Object.entries(GAME_CONFIG)) {
       // Get active round for this game type
@@ -273,12 +279,13 @@ Deno.serve(async (req) => {
 
           const newRoundNumber = (lastRound?.round_number || 0) + 1;
           const startTime = new Date();
-          const endTime = new Date(startTime.getTime() + config.duration * 1000);
+          const roundDuration = getDuration(gameType);
+          const endTime = new Date(startTime.getTime() + roundDuration * 1000);
 
           await supabase.from("game_rounds").insert({
             game_type: gameType,
             round_number: newRoundNumber,
-            duration: config.duration,
+            duration: Math.floor(roundDuration / 60), // Store as minutes
             start_time: startTime.toISOString(),
             end_time: endTime.toISOString(),
             status: "betting",
@@ -300,12 +307,13 @@ Deno.serve(async (req) => {
 
         const newRoundNumber = (lastRound?.round_number || 0) + 1;
         const startTime = new Date();
-        const endTime = new Date(startTime.getTime() + config.duration * 1000);
+        const roundDuration = getDuration(gameType);
+        const endTime = new Date(startTime.getTime() + roundDuration * 1000);
 
         await supabase.from("game_rounds").insert({
           game_type: gameType,
           round_number: newRoundNumber,
-          duration: config.duration,
+          duration: Math.floor(roundDuration / 60), // Store as minutes
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
           status: "betting",

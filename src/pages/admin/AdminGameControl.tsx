@@ -49,6 +49,22 @@ const GAME_TYPES: { id: GameType; name: string; icon: string }[] = [
   { id: 'spin', name: 'Lucky Spin', icon: '🎰' },
 ];
 
+const DURATION_OPTIONS = [
+  { value: 60, label: '1 min' },
+  { value: 120, label: '2 min' },
+  { value: 180, label: '3 min' },
+  { value: 300, label: '5 min' },
+];
+
+const DEFAULT_DURATIONS: Record<GameType, number> = {
+  color: 180,
+  parity: 120,
+  bigsmall: 120,
+  dice: 180,
+  number: 180,
+  spin: 120,
+};
+
 const GAME_OPTIONS: Record<GameType, string[]> = {
   color: ['red', 'green', 'violet'],
   parity: ['odd', 'even'],
@@ -402,6 +418,7 @@ function GameControlPanel({ gameType }: { gameType: GameType }) {
 export default function AdminGameControl() {
   const [selectedGame, setSelectedGame] = useState<GameType>('color');
   const [autoControllerEnabled, setAutoControllerEnabled] = useState(true);
+  const [gameDurations, setGameDurations] = useState<Record<GameType, number>>(DEFAULT_DURATIONS);
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
 
@@ -418,8 +435,14 @@ export default function AdminGameControl() {
         .single();
 
       if (error) throw error;
-      const value = data?.value as { enabled?: boolean } | null;
+      const value = data?.value as { enabled?: boolean; durations?: Record<string, number> } | null;
       setAutoControllerEnabled(value?.enabled ?? true);
+      if (value?.durations) {
+        setGameDurations({
+          ...DEFAULT_DURATIONS,
+          ...value.durations as Record<GameType, number>
+        });
+      }
     } catch (error) {
       console.error('Failed to fetch auto controller setting:', error);
     } finally {
@@ -434,7 +457,7 @@ export default function AdminGameControl() {
     try {
       const { error } = await supabase
         .from('app_settings')
-        .update({ value: { enabled: newValue } })
+        .update({ value: { enabled: newValue, durations: gameDurations } })
         .eq('key', 'auto_game_controller');
 
       if (error) throw error;
@@ -455,6 +478,32 @@ export default function AdminGameControl() {
       });
     } finally {
       setIsUpdatingSettings(false);
+    }
+  };
+
+  const updateGameDuration = async (gameType: GameType, duration: number) => {
+    const newDurations = { ...gameDurations, [gameType]: duration };
+    setGameDurations(newDurations);
+
+    try {
+      const { error } = await supabase
+        .from('app_settings')
+        .update({ value: { enabled: autoControllerEnabled, durations: newDurations } })
+        .eq('key', 'auto_game_controller');
+
+      if (error) throw error;
+
+      toast({
+        title: "Duration Updated",
+        description: `${GAME_TYPES.find(g => g.id === gameType)?.name} round duration set to ${duration / 60} minute(s).`,
+      });
+    } catch (error: any) {
+      console.error('Failed to update duration:', error);
+      toast({
+        title: "Update Failed",
+        description: error.message || "Could not update the duration.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -504,7 +553,7 @@ export default function AdminGameControl() {
           </div>
         </CardHeader>
         {autoControllerEnabled && (
-          <CardContent className="pt-0">
+          <CardContent className="pt-0 space-y-4">
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -521,6 +570,39 @@ export default function AdminGameControl() {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
                 <span>Auto payouts</span>
+              </div>
+            </div>
+
+            {/* Round Duration Configuration */}
+            <div className="pt-4 border-t border-border">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Round Durations</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {GAME_TYPES.map((game) => (
+                  <div key={game.id} className="space-y-1.5">
+                    <label className="text-xs text-muted-foreground flex items-center gap-1">
+                      <span>{game.icon}</span>
+                      <span>{game.name}</span>
+                    </label>
+                    <Select
+                      value={gameDurations[game.id].toString()}
+                      onValueChange={(val) => updateGameDuration(game.id, parseInt(val))}
+                    >
+                      <SelectTrigger className="h-8 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DURATION_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value.toString()}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
               </div>
             </div>
           </CardContent>
