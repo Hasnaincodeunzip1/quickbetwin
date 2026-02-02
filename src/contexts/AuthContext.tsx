@@ -110,7 +110,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
+    let safetyTimeout: number | undefined;
+
     const hydrate = async (session: Session | null) => {
+      // If auth init was stuck, unstick it as soon as we get *any* signal.
+      if (safetyTimeout) {
+        window.clearTimeout(safetyTimeout);
+        safetyTimeout = undefined;
+      }
+
       // Skip hydration if we're in the middle of logging out
       if (isLoggingOut) {
         return;
@@ -163,11 +171,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      hydrate(session);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data: { session } }) => {
+        hydrate(session);
+      })
+      .catch((e) => {
+        console.error('getSession failed:', e);
+        hydrate(null);
+      });
 
-    return () => subscription.unsubscribe();
+    // Safety: never allow the whole app to be stuck in auth loading forever.
+    // If session hydration doesn't complete within a few seconds, allow UI to render.
+    safetyTimeout = window.setTimeout(() => {
+      setIsLoading(false);
+    }, 4000);
+
+    return () => {
+      if (safetyTimeout) window.clearTimeout(safetyTimeout);
+      subscription.unsubscribe();
+    };
   }, [isLoggingOut]);
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
