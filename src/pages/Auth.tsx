@@ -14,7 +14,7 @@ import { PhoneAuthForm } from '@/components/auth/PhoneAuthForm';
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { login, signup, isAuthenticated } = useAuth();
+  const { login, signup, isAuthenticated, isLoading } = useAuth();
   
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>('login');
   const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
@@ -29,10 +29,19 @@ export default function Auth() {
 
   // Redirect if already authenticated
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!isLoading && isAuthenticated) {
       navigate('/dashboard', { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, isLoading, navigate]);
+
+  // Show loading while checking auth status
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   if (isAuthenticated) return null;
 
