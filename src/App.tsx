@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { WalletProvider } from "@/contexts/WalletContext";
+import { useAutoGameController } from "@/hooks/useAutoGameController";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -30,11 +31,17 @@ import AdminLotteryControl from "./pages/admin/AdminLotteryControl";
 
 const queryClient = new QueryClient();
 
+function GameControllerInitializer() {
+  useAutoGameController();
+  return null;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <AuthProvider>
         <WalletProvider>
+          <GameControllerInitializer />
           <Toaster />
           <Sonner />
           <BrowserRouter>
