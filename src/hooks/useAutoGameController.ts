@@ -1,32 +1,36 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
-const POLL_INTERVAL = 30000; // 30 seconds
+const POLL_INTERVAL = 60000; // 60 seconds (reduced frequency)
 
 export function useAutoGameController() {
+  const { user } = useAuth();
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const hasTriggeredRef = useRef(false);
 
   useEffect(() => {
+    // Only run when user is authenticated
+    if (!user) {
+      return;
+    }
+
     const triggerController = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('auto-game-controller', {
+        await supabase.functions.invoke('auto-game-controller', {
           method: 'POST',
         });
-        
-        if (error) {
-          console.error('Auto game controller error:', error);
-        } else {
-          console.log('Auto game controller result:', data);
-        }
       } catch (err) {
-        console.error('Failed to invoke auto game controller:', err);
+        // Silently fail - don't spam console
       }
     };
 
-    // Trigger immediately on mount
-    triggerController();
+    // Trigger once on first auth, then poll less frequently
+    if (!hasTriggeredRef.current) {
+      hasTriggeredRef.current = true;
+      triggerController();
+    }
 
-    // Then poll every 30 seconds
     intervalRef.current = setInterval(triggerController, POLL_INTERVAL);
 
     return () => {
@@ -34,5 +38,5 @@ export function useAutoGameController() {
         clearInterval(intervalRef.current);
       }
     };
-  }, []);
+  }, [user]);
 }
