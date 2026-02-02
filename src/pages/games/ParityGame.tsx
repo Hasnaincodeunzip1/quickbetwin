@@ -40,6 +40,50 @@ export default function ParityGame() {
   const [showResult, setShowResult] = useState(false);
 
   useEffect(() => {
+    if (currentRound) {
+      fetchBetForRound(currentRound.id);
+    } else {
+      clearCurrentBet();
+      setLocalBet(null);
+      setSelectedChoice(null);
+    }
+  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+
+  // Handle completed rounds
+  useEffect(() => {
+    if (recentResults.length > 0 && recentResults[0].result) {
+      const resultNum = parseInt(recentResults[0].result);
+      const parity: ParityChoice = resultNum % 2 === 0 ? 'even' : 'odd';
+      setLastResult({ number: resultNum, parity });
+      setShowResult(true);
+
+      if (localBet && localBet.choice === parity) {
+        const winAmount = localBet.amount * 1.95;
+        toast({
+          title: "🎉 You Won!",
+          description: `Number ${resultNum} is ${parity}! You won ₹${winAmount}`,
+        });
+        refetchBalance();
+      } else if (localBet) {
+        toast({
+          title: "Better luck next time!",
+          description: `Number ${resultNum} is ${parity}. Keep playing!`,
+          variant: "destructive",
+        });
+      }
+
+      setTimeout(() => {
+        setShowResult(false);
+        setLocalBet(null);
+        clearCurrentBet();
+        setSelectedChoice(null);
+        refetchBalance();
+      }, 3000);
+    }
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+
+  // Auth redirect - must be after all hooks
+  useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate('/auth', { replace: true });
     }
@@ -53,15 +97,9 @@ export default function ParityGame() {
     );
   }
 
-  useEffect(() => {
-    if (currentRound) {
-      fetchBetForRound(currentRound.id);
-    } else {
-      clearCurrentBet();
-      setLocalBet(null);
-      setSelectedChoice(null);
-    }
-  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+  if (!isAuthenticated) {
+    return null;
+  }
 
   // Handle completed rounds
   useEffect(() => {

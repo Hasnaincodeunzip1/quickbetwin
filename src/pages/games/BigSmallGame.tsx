@@ -47,6 +47,52 @@ export default function BigSmallGame() {
   const [showResult, setShowResult] = useState(false);
 
   useEffect(() => {
+    if (currentRound) {
+      fetchBetForRound(currentRound.id);
+    } else {
+      clearCurrentBet();
+      setLocalBet(null);
+      setSelectedChoice(null);
+    }
+  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+
+  useEffect(() => {
+    if (recentResults.length > 0 && recentResults[0].result) {
+      const resultStr = recentResults[0].result;
+      // Result format: "dice1,dice2,dice3" e.g. "3,5,2"
+      const dice = resultStr.split(',').map(Number);
+      const total = dice.reduce((a, b) => a + b, 0);
+      const size: SizeChoice = total >= 11 ? 'big' : 'small';
+      setLastResult({ dice, total, size });
+      setShowResult(true);
+
+      if (localBet && localBet.choice === size) {
+        const winAmount = localBet.amount * 1.95;
+        toast({
+          title: "🎉 You Won!",
+          description: `Total ${total} is ${size}! You won ₹${winAmount}`,
+        });
+        refetchBalance();
+      } else if (localBet) {
+        toast({
+          title: "Better luck next time!",
+          description: `Total ${total} is ${size}. Keep playing!`,
+          variant: "destructive",
+        });
+      }
+
+      setTimeout(() => {
+        setShowResult(false);
+        setLocalBet(null);
+        clearCurrentBet();
+        setSelectedChoice(null);
+        refetchBalance();
+      }, 3000);
+    }
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+
+  // Auth redirect - must be after all hooks
+  useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate('/auth', { replace: true });
     }
@@ -60,15 +106,9 @@ export default function BigSmallGame() {
     );
   }
 
-  useEffect(() => {
-    if (currentRound) {
-      fetchBetForRound(currentRound.id);
-    } else {
-      clearCurrentBet();
-      setLocalBet(null);
-      setSelectedChoice(null);
-    }
-  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+  if (!isAuthenticated) {
+    return null;
+  }
 
   useEffect(() => {
     if (recentResults.length > 0 && recentResults[0].result) {

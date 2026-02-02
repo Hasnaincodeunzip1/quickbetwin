@@ -49,6 +49,63 @@ export default function SpinGame() {
   const [hasBet, setHasBet] = useState(false);
 
   useEffect(() => {
+    if (currentRound) {
+      fetchBetForRound(currentRound.id);
+    } else {
+      clearCurrentBet();
+      setHasBet(false);
+    }
+  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+
+  // Handle result from admin
+  useEffect(() => {
+    if (recentResults.length > 0 && recentResults[0].result) {
+      const resultStr = recentResults[0].result;
+      // Result format: "🍒,🍒,🍒" or similar
+      const resultReels = resultStr.split(',') as SpinSymbol[];
+      setReels(resultReels);
+      setShowResult(true);
+
+      const allMatch = resultReels[0] === resultReels[1] && resultReels[1] === resultReels[2];
+      const twoMatch = resultReels[0] === resultReels[1] || resultReels[1] === resultReels[2] || resultReels[0] === resultReels[2];
+
+      if (hasBet) {
+        if (allMatch) {
+          const winSymbol = resultReels[0];
+          const winAmount = betAmount * multipliers[winSymbol];
+          setLastWin({ amount: winAmount, symbol: winSymbol });
+          toast({
+            title: "🎰 JACKPOT!",
+            description: `Triple ${symbolNames[winSymbol]}! You won ₹${winAmount}`,
+          });
+        } else if (twoMatch) {
+          const winAmount = betAmount * 1.5;
+          setLastWin({ amount: winAmount, symbol: resultReels[0] });
+          toast({
+            title: "🎰 Two of a Kind!",
+            description: `You won ₹${winAmount}`,
+          });
+        } else {
+          toast({
+            title: "No match",
+            description: "Better luck next time!",
+            variant: "destructive",
+          });
+        }
+        refetchBalance();
+      }
+
+      setTimeout(() => {
+        setShowResult(false);
+        setLastWin(null);
+        setHasBet(false);
+        refetchBalance();
+      }, 3000);
+    }
+  }, [recentResults, hasBet, betAmount, refetchBalance]);
+
+  // Auth redirect - must be after all hooks
+  useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate('/auth', { replace: true });
     }
@@ -62,14 +119,9 @@ export default function SpinGame() {
     );
   }
 
-  useEffect(() => {
-    if (currentRound) {
-      fetchBetForRound(currentRound.id);
-    } else {
-      clearCurrentBet();
-      setHasBet(false);
-    }
-  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+  if (!isAuthenticated) {
+    return null;
+  }
 
   // Handle result from admin
   useEffect(() => {

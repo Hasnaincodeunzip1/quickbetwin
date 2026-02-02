@@ -48,6 +48,48 @@ export default function DiceGame() {
   const [showResult, setShowResult] = useState(false);
 
   useEffect(() => {
+    if (currentRound) {
+      fetchBetForRound(currentRound.id);
+    } else {
+      clearCurrentBet();
+      setLocalBet(null);
+      setSelectedNumber(null);
+    }
+  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+
+  useEffect(() => {
+    if (recentResults.length > 0 && recentResults[0].result) {
+      const result = parseInt(recentResults[0].result);
+      setLastResult(result);
+      setShowResult(true);
+
+      if (localBet && localBet.number === result) {
+        const winAmount = localBet.amount * 5.5;
+        toast({
+          title: "🎯 Perfect Hit!",
+          description: `Dice landed on ${result}! You won ₹${winAmount}`,
+        });
+        refetchBalance();
+      } else if (localBet) {
+        toast({
+          title: "Not this time!",
+          description: `Dice landed on ${result}. Try again!`,
+          variant: "destructive",
+        });
+      }
+
+      setTimeout(() => {
+        setShowResult(false);
+        setLocalBet(null);
+        clearCurrentBet();
+        setSelectedNumber(null);
+        refetchBalance();
+      }, 3000);
+    }
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+
+  // Auth redirect - must be after all hooks
+  useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate('/auth', { replace: true });
     }
@@ -61,15 +103,9 @@ export default function DiceGame() {
     );
   }
 
-  useEffect(() => {
-    if (currentRound) {
-      fetchBetForRound(currentRound.id);
-    } else {
-      clearCurrentBet();
-      setLocalBet(null);
-      setSelectedNumber(null);
-    }
-  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+  if (!isAuthenticated) {
+    return null;
+  }
 
   useEffect(() => {
     if (recentResults.length > 0 && recentResults[0].result) {
