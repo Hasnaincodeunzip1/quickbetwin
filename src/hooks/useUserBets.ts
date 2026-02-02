@@ -29,13 +29,13 @@ export function useUserBets() {
 
     setIsLoading(true);
     try {
-      // Fetch user's bets with game round info
+      // Fetch user's bets with game round info - limit to recent 20 for performance
       const { data: betsData, error: betsError } = await supabase
         .from('bets')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(20);
 
       if (betsError) {
         console.error('Error fetching bets:', betsError);

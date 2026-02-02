@@ -20,20 +20,23 @@ export function useAutoGameController() {
         await supabase.functions.invoke('auto-game-controller', {
           method: 'POST',
         });
-      } catch (err) {
-        // Silently fail - don't spam console
+      } catch {
+        // Silently fail
       }
     };
 
-    // Trigger once on first auth, then poll less frequently
-    if (!hasTriggeredRef.current) {
-      hasTriggeredRef.current = true;
-      triggerController();
-    }
+    // Defer first trigger by 3 seconds to not block initial render
+    const initialDelay = setTimeout(() => {
+      if (!hasTriggeredRef.current) {
+        hasTriggeredRef.current = true;
+        triggerController();
+      }
+    }, 3000);
 
     intervalRef.current = setInterval(triggerController, POLL_INTERVAL);
 
     return () => {
+      clearTimeout(initialDelay);
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }

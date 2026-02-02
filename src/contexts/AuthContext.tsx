@@ -134,29 +134,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      setIsLoading(true);
-
-      const [profileData, adminStatus] = await Promise.all([
+      // Fetch profile and role in parallel, but don't block UI
+      Promise.all([
         fetchProfile(session.user.id),
         fetchUserRole(session.user.id),
-      ]);
+      ]).then(([profileData, adminStatus]) => {
+        setProfile(profileData);
+        setIsAdmin(adminStatus);
+        setIsLoading(false);
+      }).catch(() => {
+        setIsLoading(false);
+      });
 
-      setProfile(profileData);
-      setIsAdmin(adminStatus);
-      setIsLoading(false);
-
-      // Push notifications should NOT block auth/UI; run in background.
-      (async () => {
-        try {
-          await pushNotificationService.initialize();
-          const granted = await pushNotificationService.requestPermission();
-          if (granted) {
-            await pushNotificationService.registerToken(session.user.id);
-          }
-        } catch (e) {
-          console.warn('Push notification init failed:', e);
-        }
-      })();
+      // Push notifications - completely deferred, runs after 2 seconds
+      setTimeout(() => {
+        pushNotificationService.initialize()
+          .then(() => pushNotificationService.requestPermission())
+          .then((granted) => {
+            if (granted && session.user) {
+              pushNotificationService.registerToken(session.user.id);
+            }
+          })
+          .catch(() => {});
+      }, 2000);
     };
 
     // Set up auth state listener FIRST
