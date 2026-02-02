@@ -50,9 +50,17 @@ export default function SpinGame() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      navigate('/auth');
+      navigate('/auth', { replace: true });
     }
   }, [isAuthenticated, isLoading, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-4 border-primary/30 border-t-primary rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (currentRound) {
