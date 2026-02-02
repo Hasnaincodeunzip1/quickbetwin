@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, lazy, Suspense } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,8 +7,7 @@ import { useUserBets } from '@/hooks/useUserBets';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { VipSection } from '@/components/vip/VipSection';
-import { WinLossPopups } from '@/components/dashboard/WinLossPopups';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   Wallet, 
   ArrowUpCircle, 
@@ -18,9 +17,12 @@ import {
   Users, 
   LogOut,
   Trophy,
-  TrendingUp,
-  Clock
+  TrendingUp
 } from 'lucide-react';
+
+// Lazy load non-critical components
+const VipSection = lazy(() => import('@/components/vip/VipSection').then(m => ({ default: m.VipSection })));
+const WinLossPopups = lazy(() => import('@/components/dashboard/WinLossPopups').then(m => ({ default: m.WinLossPopups })));
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -55,8 +57,10 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* Win/Loss Popups */}
-      <WinLossPopups />
+      {/* Win/Loss Popups - lazy loaded */}
+      <Suspense fallback={null}>
+        <WinLossPopups />
+      </Suspense>
       
       {/* Header */}
       <header className="sticky top-0 z-50 glass border-b border-border">
@@ -187,13 +191,15 @@ export default function Dashboard() {
           </Card>
         </motion.div>
 
-        {/* VIP Section */}
+        {/* VIP Section - lazy loaded */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.25 }}
         >
-          <VipSection />
+          <Suspense fallback={<Skeleton className="h-40 w-full rounded-xl" />}>
+            <VipSection />
+          </Suspense>
         </motion.div>
 
         {/* Recent Bets */}
