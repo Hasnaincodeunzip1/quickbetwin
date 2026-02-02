@@ -129,9 +129,9 @@ const Index = () => {
           className="flex items-center gap-3"
         >
           <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-xl">C</span>
+            <span className="text-primary-foreground font-bold text-xl">G</span>
           </div>
-          <span className="font-bold text-xl text-foreground">ColorPredict</span>
+          <span className="font-bold text-xl text-foreground">GenXWIN</span>
         </motion.div>
 
         <motion.div
@@ -162,7 +162,7 @@ const Index = () => {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary border border-border mb-8"
           >
             <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-            <span className="text-sm text-muted-foreground">India's #1 Color Prediction Game</span>
+            <span className="text-sm text-muted-foreground">India's #1 Prediction Gaming Platform</span>
           </motion.div>
 
           <motion.h1
@@ -454,9 +454,9 @@ const Index = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                <span className="text-primary-foreground font-bold">C</span>
+                <span className="text-primary-foreground font-bold">G</span>
               </div>
-              <span className="font-bold text-foreground">ColorPredict</span>
+              <span className="font-bold text-foreground">GenXWIN</span>
             </div>
             <div className="flex items-center gap-6 text-sm text-muted-foreground">
               <span>Terms of Service</span>
@@ -464,7 +464,7 @@ const Index = () => {
               <span>Contact Us</span>
             </div>
             <p className="text-sm text-muted-foreground">
-              © 2024 ColorPredict. All rights reserved.
+              © 2025 GenXWIN. All rights reserved.
             </p>
           </div>
         </div>

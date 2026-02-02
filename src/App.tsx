@@ -26,6 +26,7 @@ import AdminWithdrawals from "./pages/admin/AdminWithdrawals";
 import AdminGameControl from "./pages/admin/AdminGameControl";
 import AdminBankAccounts from "./pages/admin/AdminBankAccounts";
 import AdminUPIAccounts from "./pages/admin/AdminUPIAccounts";
+import AdminLotteryControl from "./pages/admin/AdminLotteryControl";
 
 const queryClient = new QueryClient();
 
@@ -64,6 +65,7 @@ const App = () => (
                 <Route path="bank-accounts" element={<AdminBankAccounts />} />
                 <Route path="upi-accounts" element={<AdminUPIAccounts />} />
                 <Route path="game-control" element={<AdminGameControl />} />
+                <Route path="lottery" element={<AdminLotteryControl />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />

@@ -12,6 +12,7 @@ interface Profile {
   referred_by: string | null;
   status: string;
   created_at: string;
+  vip_level: 'none' | 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond';
 }
 
 interface UserRole {
