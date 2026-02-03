@@ -51,15 +51,38 @@ export default function BigSmallGame() {
   const [lastResult, setLastResult] = useState<{ dice: number[]; total: number; size: SizeChoice } | null>(null);
   const [showResult, setShowResult] = useState(false);
 
+  // Sync bet state for the current round (prevents controls staying disabled across rounds)
   useEffect(() => {
-    if (currentRound) {
-      fetchBetForRound(currentRound.id);
-    } else {
+    let cancelled = false;
+
+    const sync = async () => {
+      if (!currentRound) {
+        clearCurrentBet();
+        setLocalBet(null);
+        setSelectedChoice(null);
+        return;
+      }
+
       clearCurrentBet();
       setLocalBet(null);
       setSelectedChoice(null);
-    }
-  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+
+      const bet = await fetchBetForRound(currentRound.id);
+      if (cancelled || !bet) return;
+
+      const choice = bet.bet_choice;
+      if (choice === 'big' || choice === 'small') {
+        setSelectedChoice(choice);
+        setBetAmount(bet.amount);
+        setLocalBet({ choice, amount: bet.amount });
+      }
+    };
+
+    sync();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
   useEffect(() => {
     if (recentResults.length > 0 && recentResults[0].result) {
@@ -134,7 +157,7 @@ export default function BigSmallGame() {
   };
 
   const presetAmounts = [50, 100, 200, 500, 1000];
-  const canBet = isBettingOpen && !localBet && currentRound;
+  const canBet = Boolean(isBettingOpen && !localBet && currentRound);
 
   return (
     <div className="min-h-screen bg-background pb-24">

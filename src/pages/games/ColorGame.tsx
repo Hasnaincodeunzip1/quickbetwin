@@ -43,16 +43,39 @@ export default function ColorGame() {
   const [lastResult, setLastResult] = useState<GameColor | null>(null);
   const [showResult, setShowResult] = useState(false);
 
-  // Fetch existing bet for current round
+  // Sync bet state for the current round (prevents controls staying disabled across rounds)
   useEffect(() => {
-    if (currentRound) {
-      fetchBetForRound(currentRound.id);
-    } else {
+    let cancelled = false;
+
+    const sync = async () => {
+      if (!currentRound) {
+        clearCurrentBet();
+        setLocalBet(null);
+        setSelectedColor(null);
+        return;
+      }
+
+      // Always reset local state on round change, then re-hydrate if a bet exists for this round
       clearCurrentBet();
       setLocalBet(null);
       setSelectedColor(null);
-    }
-  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+
+      const bet = await fetchBetForRound(currentRound.id);
+      if (cancelled || !bet) return;
+
+      const choice = bet.bet_choice;
+      if (choice === 'red' || choice === 'green' || choice === 'violet') {
+        setSelectedColor(choice);
+        setBetAmount(bet.amount);
+        setLocalBet({ color: choice, amount: bet.amount });
+      }
+    };
+
+    sync();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
   // Handle completed rounds
   useEffect(() => {
@@ -150,7 +173,7 @@ export default function ColorGame() {
     violet: { bg: 'bg-game-violet', glow: 'shadow-[0_0_30px_hsl(270_80%_55%/0.4)]', label: 'Violet' },
   };
 
-  const canBet = isBettingOpen && !localBet && currentRound;
+  const canBet = Boolean(isBettingOpen && !localBet && currentRound);
 
   return (
     <div className="min-h-screen bg-background pb-24">
