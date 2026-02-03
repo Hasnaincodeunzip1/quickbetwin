@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export type GameType = 'color' | 'parity' | 'bigsmall' | 'dice' | 'number' | 'spin';
 export type RoundStatus = 'betting' | 'locked' | 'completed';
-export type DurationMinutes = 1 | 2 | 3 | 5;
+export type DurationMinutes = 1 | 3 | 5;
 
 export interface GameRound {
   id: string;

@@ -10,7 +10,6 @@ interface DurationSelectorProps {
 
 const DURATIONS: { value: DurationMinutes; label: string }[] = [
   { value: 1, label: '1 Min' },
-  { value: 2, label: '2 Min' },
   { value: 3, label: '3 Min' },
   { value: 5, label: '5 Min' },
 ];
@@ -20,33 +19,30 @@ export function DurationSelector({
   onDurationChange, 
   disabled = false 
 }: DurationSelectorProps) {
+  const handleClick = (duration: DurationMinutes) => {
+    if (!disabled && duration !== selectedDuration) {
+      onDurationChange(duration);
+    }
+  };
+
   return (
     <div className="flex items-center justify-center gap-2 mb-4">
       <Clock className="w-4 h-4 text-muted-foreground" />
-      <div className="flex bg-secondary rounded-full p-1">
+      <div className="flex bg-secondary rounded-full p-1 gap-1">
         {DURATIONS.map((duration) => (
-          <motion.button
+          <button
             key={duration.value}
-            onClick={() => !disabled && onDurationChange(duration.value)}
+            type="button"
+            onClick={() => handleClick(duration.value)}
             disabled={disabled}
-            whileHover={{ scale: disabled ? 1 : 1.05 }}
-            whileTap={{ scale: disabled ? 1 : 0.95 }}
-            className={`relative px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+            className={`relative px-4 py-2 rounded-full text-xs font-medium transition-all ${
               selectedDuration === duration.value
-                ? 'text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground'
-            } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-secondary-foreground/10'
+            } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
           >
-            {selectedDuration === duration.value && (
-              <motion.div
-                layoutId="duration-bg"
-                className="absolute inset-0 bg-primary rounded-full"
-                initial={false}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              />
-            )}
-            <span className="relative z-10">{duration.label}</span>
-          </motion.button>
+            {duration.label}
+          </button>
         ))}
       </div>
     </div>
