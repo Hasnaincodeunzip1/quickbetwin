@@ -23,7 +23,7 @@ export function PhoneAuthForm({ mode, onBack }: PhoneAuthFormProps) {
   // Convert phone to email format for Supabase auth
   const phoneToEmail = (phoneNumber: string): string => {
     const digits = phoneNumber.replace(/\D/g, '');
-    return `${digits}@phone.quickbetwin.app`;
+    return `${digits}@phone.genxwin.app`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
