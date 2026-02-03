@@ -5,13 +5,17 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// All game types
+const GAME_TYPES = ['color', 'parity', 'bigsmall', 'dice', 'number', 'spin'];
+
+// All duration categories in seconds
+const DURATION_CATEGORIES = [60, 120, 180, 300]; // 1, 2, 3, 5 minutes
+
 // Game configuration with multipliers for profit calculation
 const GAME_CONFIG: Record<string, { 
-  duration: number; 
   options: { value: string; multiplier: number }[] 
 }> = {
   color: {
-    duration: 180, // 3 minutes
     options: [
       { value: "red", multiplier: 2 },
       { value: "green", multiplier: 2 },
@@ -29,21 +33,18 @@ const GAME_CONFIG: Record<string, {
     ],
   },
   parity: {
-    duration: 120, // 2 minutes
     options: [
       { value: "odd", multiplier: 2 },
       { value: "even", multiplier: 2 },
     ],
   },
   bigsmall: {
-    duration: 120,
     options: [
       { value: "big", multiplier: 2 },
       { value: "small", multiplier: 2 },
     ],
   },
   dice: {
-    duration: 180,
     options: [
       { value: "1", multiplier: 6 },
       { value: "2", multiplier: 6 },
@@ -54,7 +55,6 @@ const GAME_CONFIG: Record<string, {
     ],
   },
   number: {
-    duration: 180,
     options: [
       { value: "0", multiplier: 10 },
       { value: "1", multiplier: 10 },
@@ -69,7 +69,6 @@ const GAME_CONFIG: Record<string, {
     ],
   },
   spin: {
-    duration: 120,
     options: [
       { value: "2x", multiplier: 2 },
       { value: "3x", multiplier: 3 },
@@ -110,7 +109,7 @@ Deno.serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if auto game controller is enabled and get settings
+    // Check if auto game controller is enabled
     const { data: setting } = await supabase
       .from("app_settings")
       .select("value")
@@ -118,7 +117,6 @@ Deno.serve(async (req) => {
       .single();
 
     const isEnabled = setting?.value?.enabled ?? true;
-    const configuredDurations = setting?.value?.durations as Record<string, number> | undefined;
 
     if (!isEnabled) {
       return new Response(JSON.stringify({ 
@@ -130,196 +128,201 @@ Deno.serve(async (req) => {
       });
     }
     
-    const results: Record<string, string> = {};
+    const results: Record<string, string[]> = {};
     const now = new Date();
 
-    // Helper to get configured duration or fallback to default
-    const getDuration = (gameType: string): number => {
-      return configuredDurations?.[gameType] ?? GAME_CONFIG[gameType].duration;
-    };
+    // Process each game type
+    for (const gameType of GAME_TYPES) {
+      results[gameType] = [];
+      const config = GAME_CONFIG[gameType];
 
-    for (const [gameType, config] of Object.entries(GAME_CONFIG)) {
-      // Get active round for this game type
-      const { data: activeRound } = await supabase
-        .from("game_rounds")
-        .select("*")
-        .eq("game_type", gameType)
-        .in("status", ["betting", "locked"])
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+      // Process each duration category for this game
+      for (const durationSeconds of DURATION_CATEGORIES) {
+        const durationMinutes = durationSeconds / 60;
 
-      if (activeRound) {
-        const endTime = new Date(activeRound.end_time);
-        
-        if (activeRound.status === "betting" && now >= endTime) {
-          // Lock the round and calculate optimal result
-          await supabase
-            .from("game_rounds")
-            .update({ status: "locked" })
-            .eq("id", activeRound.id);
+        // Get active round for this game type AND duration
+        const { data: activeRound } = await supabase
+          .from("game_rounds")
+          .select("*")
+          .eq("game_type", gameType)
+          .eq("duration", durationMinutes)
+          .in("status", ["betting", "locked"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (activeRound) {
+          const endTime = new Date(activeRound.end_time);
           
-          // Get all bets for this round
-          const { data: bets } = await supabase
-            .from("bets")
-            .select("*")
-            .eq("round_id", activeRound.id);
-
-          // Calculate profit/loss for each possible result
-          let bestResult = config.options[0].value;
-          let bestProfit = -Infinity;
-          const totalBetAmount = bets?.reduce((sum, bet) => sum + Number(bet.amount), 0) || 0;
-
-          for (const option of config.options) {
-            let payout = 0;
+          if (activeRound.status === "betting" && now >= endTime) {
+            // Lock the round and calculate optimal result
+            await supabase
+              .from("game_rounds")
+              .update({ status: "locked" })
+              .eq("id", activeRound.id);
             
-            if (gameType === "color") {
-              // Special color game logic
-              const winningChoices = getColorWinningBets(option.value);
-              const winningBets = bets?.filter(bet => winningChoices.includes(bet.bet_choice)) || [];
+            // Get all bets for this round
+            const { data: bets } = await supabase
+              .from("bets")
+              .select("*")
+              .eq("round_id", activeRound.id);
+
+            // Calculate profit/loss for each possible result
+            let bestResult = config.options[0].value;
+            let bestProfit = -Infinity;
+            const totalBetAmount = bets?.reduce((sum, bet) => sum + Number(bet.amount), 0) || 0;
+
+            for (const option of config.options) {
+              let payout = 0;
               
-              for (const bet of winningBets) {
-                // Determine multiplier based on what they bet
-                let multiplier = 2; // Default for color bets
-                if (!isNaN(parseInt(bet.bet_choice))) {
-                  multiplier = 10; // Number bet
-                } else if (bet.bet_choice === "violet") {
-                  multiplier = 5;
-                }
-                payout += Number(bet.amount) * multiplier;
-              }
-            } else {
-              // Standard game logic
-              const winningBets = bets?.filter(bet => bet.bet_choice === option.value) || [];
-              payout = winningBets.reduce((sum, bet) => sum + Number(bet.amount) * option.multiplier, 0);
-            }
-
-            const profit = totalBetAmount - payout;
-            
-            if (profit > bestProfit) {
-              bestProfit = profit;
-              bestResult = option.value;
-            }
-          }
-
-          // If no bets, pick random result for fairness appearance
-          if (!bets || bets.length === 0) {
-            const randomIndex = Math.floor(Math.random() * config.options.length);
-            bestResult = config.options[randomIndex].value;
-          }
-
-          // Set the result
-          await supabase
-            .from("game_rounds")
-            .update({ result: bestResult, status: "completed" })
-            .eq("id", activeRound.id);
-
-          // Process payouts
-          if (bets && bets.length > 0) {
-            for (const bet of bets) {
-              let won = false;
-              let multiplier = 0;
-
               if (gameType === "color") {
-                const winningChoices = getColorWinningBets(bestResult);
-                won = winningChoices.includes(bet.bet_choice);
-                if (won) {
+                // Special color game logic
+                const winningChoices = getColorWinningBets(option.value);
+                const winningBets = bets?.filter(bet => winningChoices.includes(bet.bet_choice)) || [];
+                
+                for (const bet of winningBets) {
+                  // Determine multiplier based on what they bet
+                  let multiplier = 2; // Default for color bets
                   if (!isNaN(parseInt(bet.bet_choice))) {
-                    multiplier = 10;
+                    multiplier = 10; // Number bet
                   } else if (bet.bet_choice === "violet") {
                     multiplier = 5;
-                  } else {
-                    multiplier = 2;
                   }
+                  payout += Number(bet.amount) * multiplier;
                 }
               } else {
-                won = bet.bet_choice === bestResult;
-                if (won) {
-                  const optionConfig = config.options.find(o => o.value === bestResult);
-                  multiplier = optionConfig?.multiplier || 0;
-                }
+                // Standard game logic
+                const winningBets = bets?.filter(bet => bet.bet_choice === option.value) || [];
+                payout = winningBets.reduce((sum, bet) => sum + Number(bet.amount) * option.multiplier, 0);
               }
 
-              const payout = won ? Number(bet.amount) * multiplier : 0;
+              const profit = totalBetAmount - payout;
+              
+              if (profit > bestProfit) {
+                bestProfit = profit;
+                bestResult = option.value;
+              }
+            }
 
-              // Update bet record
-              await supabase
-                .from("bets")
-                .update({ won, payout })
-                .eq("id", bet.id);
+            // If no bets, pick random result for fairness appearance
+            if (!bets || bets.length === 0) {
+              const randomIndex = Math.floor(Math.random() * config.options.length);
+              bestResult = config.options[randomIndex].value;
+            }
 
-              // Credit winner's wallet
-              if (won && payout > 0) {
-                const { data: wallet } = await supabase
-                  .from("wallets")
-                  .select("balance")
-                  .eq("user_id", bet.user_id)
-                  .single();
+            // Set the result
+            await supabase
+              .from("game_rounds")
+              .update({ result: bestResult, status: "completed" })
+              .eq("id", activeRound.id);
 
-                if (wallet) {
-                  await supabase
+            // Process payouts
+            if (bets && bets.length > 0) {
+              for (const bet of bets) {
+                let won = false;
+                let multiplier = 0;
+
+                if (gameType === "color") {
+                  const winningChoices = getColorWinningBets(bestResult);
+                  won = winningChoices.includes(bet.bet_choice);
+                  if (won) {
+                    if (!isNaN(parseInt(bet.bet_choice))) {
+                      multiplier = 10;
+                    } else if (bet.bet_choice === "violet") {
+                      multiplier = 5;
+                    } else {
+                      multiplier = 2;
+                    }
+                  }
+                } else {
+                  won = bet.bet_choice === bestResult;
+                  if (won) {
+                    const optionConfig = config.options.find(o => o.value === bestResult);
+                    multiplier = optionConfig?.multiplier || 0;
+                  }
+                }
+
+                const payout = won ? Number(bet.amount) * multiplier : 0;
+
+                // Update bet record
+                await supabase
+                  .from("bets")
+                  .update({ won, payout })
+                  .eq("id", bet.id);
+
+                // Credit winner's wallet
+                if (won && payout > 0) {
+                  const { data: wallet } = await supabase
                     .from("wallets")
-                    .update({ balance: Number(wallet.balance) + payout })
-                    .eq("user_id", bet.user_id);
+                    .select("balance")
+                    .eq("user_id", bet.user_id)
+                    .single();
+
+                  if (wallet) {
+                    await supabase
+                      .from("wallets")
+                      .update({ balance: Number(wallet.balance) + payout })
+                      .eq("user_id", bet.user_id);
+                  }
                 }
               }
             }
+
+            results[gameType].push(`${durationMinutes}min: Completed #${activeRound.round_number}`);
+
+            // Create new round for this duration
+            const { data: lastRound } = await supabase
+              .from("game_rounds")
+              .select("round_number")
+              .eq("game_type", gameType)
+              .eq("duration", durationMinutes)
+              .order("round_number", { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            const newRoundNumber = (lastRound?.round_number || 0) + 1;
+            const startTime = new Date();
+            const endTime = new Date(startTime.getTime() + durationSeconds * 1000);
+
+            await supabase.from("game_rounds").insert({
+              game_type: gameType,
+              round_number: newRoundNumber,
+              duration: durationMinutes,
+              start_time: startTime.toISOString(),
+              end_time: endTime.toISOString(),
+              status: "betting",
+            });
+
+            results[gameType].push(`${durationMinutes}min: Started #${newRoundNumber}`);
+          } else if (activeRound.status === "betting") {
+            // Round still active, nothing to do
           }
-
-          results[gameType] = `Completed round ${activeRound.round_number} with result: ${bestResult}, profit: ${bestProfit}`;
-
-          // Create new round
+        } else {
+          // No active round for this game+duration - create one
           const { data: lastRound } = await supabase
             .from("game_rounds")
             .select("round_number")
             .eq("game_type", gameType)
+            .eq("duration", durationMinutes)
             .order("round_number", { ascending: false })
             .limit(1)
-            .single();
+            .maybeSingle();
 
           const newRoundNumber = (lastRound?.round_number || 0) + 1;
           const startTime = new Date();
-          const roundDuration = getDuration(gameType);
-          const endTime = new Date(startTime.getTime() + roundDuration * 1000);
+          const endTime = new Date(startTime.getTime() + durationSeconds * 1000);
 
           await supabase.from("game_rounds").insert({
             game_type: gameType,
             round_number: newRoundNumber,
-            duration: Math.floor(roundDuration / 60), // Store as minutes
+            duration: durationMinutes,
             start_time: startTime.toISOString(),
             end_time: endTime.toISOString(),
             status: "betting",
           });
 
-          results[gameType] += `, started round ${newRoundNumber}`;
-        } else if (activeRound.status === "betting") {
-          results[gameType] = `Round ${activeRound.round_number} still accepting bets`;
+          results[gameType].push(`${durationMinutes}min: Created #${newRoundNumber}`);
         }
-      } else {
-        // No active round - create one
-        const { data: lastRound } = await supabase
-          .from("game_rounds")
-          .select("round_number")
-          .eq("game_type", gameType)
-          .order("round_number", { ascending: false })
-          .limit(1)
-          .single();
-
-        const newRoundNumber = (lastRound?.round_number || 0) + 1;
-        const startTime = new Date();
-        const roundDuration = getDuration(gameType);
-        const endTime = new Date(startTime.getTime() + roundDuration * 1000);
-
-        await supabase.from("game_rounds").insert({
-          game_type: gameType,
-          round_number: newRoundNumber,
-          duration: Math.floor(roundDuration / 60), // Store as minutes
-          start_time: startTime.toISOString(),
-          end_time: endTime.toISOString(),
-          status: "betting",
-        });
-
-        results[gameType] = `Created new round ${newRoundNumber}`;
       }
     }
 

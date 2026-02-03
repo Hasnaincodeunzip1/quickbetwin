@@ -3,12 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
-import { useGameRounds, GameType } from '@/hooks/useGameRounds';
+import { useGameRounds, GameType, DurationMinutes } from '@/hooks/useGameRounds';
 import { useBets } from '@/hooks/useBets';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WaitingForRound } from '@/components/games/WaitingForRound';
+import { DurationSelector } from '@/components/games/DurationSelector';
 import { 
   Wallet, 
   Gamepad2, 
@@ -38,8 +39,12 @@ export default function DiceGame() {
   const { balance, refetchBalance } = useWallet();
   const { placeBet, isPlacingBet, clearCurrentBet, fetchBetForRound } = useBets();
 
+  const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'dice';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ gameType });
+  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ 
+    gameType, 
+    durationMinutes: selectedDuration 
+  });
 
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null);
   const [betAmount, setBetAmount] = useState(100);
@@ -107,42 +112,11 @@ export default function DiceGame() {
     return null;
   }
 
-  useEffect(() => {
-    if (recentResults.length > 0 && recentResults[0].result) {
-      const result = parseInt(recentResults[0].result);
-      setLastResult(result);
-      setShowResult(true);
-
-      if (localBet && localBet.number === result) {
-        const winAmount = localBet.amount * 5.5;
-        toast({
-          title: "🎯 Perfect Hit!",
-          description: `Dice landed on ${result}! You won ₹${winAmount}`,
-        });
-        refetchBalance();
-      } else if (localBet) {
-        toast({
-          title: "Not this time!",
-          description: `Dice landed on ${result}. Try again!`,
-          variant: "destructive",
-        });
-      }
-
-      setTimeout(() => {
-        setShowResult(false);
-        setLocalBet(null);
-        clearCurrentBet();
-        setSelectedNumber(null);
-        refetchBalance();
-      }, 3000);
-    }
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
-
   const handleBetAmountChange = (delta: number) => {
     setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));
   };
 
-  const handlePlaceBet = useCallback(async () => {
+  const handlePlaceBet = async () => {
     if (selectedNumber === null || !isBettingOpen || localBet || isPlacingBet || !currentRound) return;
     
     if (betAmount > balance) {
@@ -155,7 +129,7 @@ export default function DiceGame() {
       setLocalBet({ number: selectedNumber, amount: betAmount });
       refetchBalance();
     }
-  }, [selectedNumber, isBettingOpen, localBet, isPlacingBet, betAmount, balance, currentRound, placeBet, refetchBalance]);
+  };
 
   const presetAmounts = [50, 100, 200, 500, 1000];
   const canBet = isBettingOpen && !localBet && currentRound;
@@ -185,6 +159,13 @@ export default function DiceGame() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
+        {/* Duration Selector */}
+        <DurationSelector 
+          selectedDuration={selectedDuration}
+          onDurationChange={setSelectedDuration}
+          disabled={!!localBet}
+        />
+
         {!currentRound ? (
           <WaitingForRound gameName="Dice Roll" />
         ) : (
@@ -272,7 +253,7 @@ export default function DiceGame() {
         </AnimatePresence>
 
         <Card className="game-card">
-          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><History className="w-4 h-4" /> Recent Rolls</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><History className="w-4 h-4" /> Recent Rolls ({selectedDuration} min)</CardTitle></CardHeader>
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {recentResults.length > 0 ? recentResults.map((round, index) => {
