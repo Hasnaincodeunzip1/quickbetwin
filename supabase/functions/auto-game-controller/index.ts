@@ -8,8 +8,8 @@ const corsHeaders = {
 // All game types
 const GAME_TYPES = ['color', 'parity', 'bigsmall', 'dice', 'number', 'spin'];
 
-// All duration categories in seconds
-const DURATION_CATEGORIES = [60, 120, 180, 300]; // 1, 2, 3, 5 minutes
+// All duration categories in seconds (1, 3, 5 minutes only)
+const DURATION_CATEGORIES = [60, 180, 300]; // 1, 3, 5 minutes
 
 // Game configuration with multipliers for profit calculation
 const GAME_CONFIG: Record<string, { 
@@ -20,16 +20,6 @@ const GAME_CONFIG: Record<string, {
       { value: "red", multiplier: 2 },
       { value: "green", multiplier: 2 },
       { value: "violet", multiplier: 5 },
-      { value: "0", multiplier: 10 },
-      { value: "1", multiplier: 10 },
-      { value: "2", multiplier: 10 },
-      { value: "3", multiplier: 10 },
-      { value: "4", multiplier: 10 },
-      { value: "5", multiplier: 10 },
-      { value: "6", multiplier: 10 },
-      { value: "7", multiplier: 10 },
-      { value: "8", multiplier: 10 },
-      { value: "9", multiplier: 10 },
     ],
   },
   parity: {
@@ -80,22 +70,10 @@ const GAME_CONFIG: Record<string, {
   },
 };
 
-// Color game has special rules - numbers also match colors
+// Color game matching - which colors win for each result
 function getColorWinningBets(result: string): string[] {
-  const winningChoices = [result];
-  
-  // Number results also match their color
-  if (["0", "5"].includes(result)) {
-    winningChoices.push("violet");
-  }
-  if (["1", "3", "5", "7", "9"].includes(result)) {
-    winningChoices.push("red");
-  }
-  if (["0", "2", "4", "6", "8"].includes(result)) {
-    winningChoices.push("green");
-  }
-  
-  return winningChoices;
+  // For color game, result is always red, green, or violet
+  return [result];
 }
 
 Deno.serve(async (req) => {
@@ -176,18 +154,12 @@ Deno.serve(async (req) => {
               let payout = 0;
               
               if (gameType === "color") {
-                // Special color game logic
-                const winningChoices = getColorWinningBets(option.value);
-                const winningBets = bets?.filter(bet => winningChoices.includes(bet.bet_choice)) || [];
+                // Color game logic - simple color matching
+                const winningBets = bets?.filter(bet => bet.bet_choice === option.value) || [];
                 
                 for (const bet of winningBets) {
                   // Determine multiplier based on what they bet
-                  let multiplier = 2; // Default for color bets
-                  if (!isNaN(parseInt(bet.bet_choice))) {
-                    multiplier = 10; // Number bet
-                  } else if (bet.bet_choice === "violet") {
-                    multiplier = 5;
-                  }
+                  const multiplier = bet.bet_choice === "violet" ? 5 : 2;
                   payout += Number(bet.amount) * multiplier;
                 }
               } else {
@@ -223,16 +195,9 @@ Deno.serve(async (req) => {
                 let multiplier = 0;
 
                 if (gameType === "color") {
-                  const winningChoices = getColorWinningBets(bestResult);
-                  won = winningChoices.includes(bet.bet_choice);
+                  won = bet.bet_choice === bestResult;
                   if (won) {
-                    if (!isNaN(parseInt(bet.bet_choice))) {
-                      multiplier = 10;
-                    } else if (bet.bet_choice === "violet") {
-                      multiplier = 5;
-                    } else {
-                      multiplier = 2;
-                    }
+                    multiplier = bet.bet_choice === "violet" ? 5 : 2;
                   }
                 } else {
                   won = bet.bet_choice === bestResult;
