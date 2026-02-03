@@ -57,22 +57,26 @@ export default function ParityGame() {
   // Handle completed rounds
   useEffect(() => {
     if (recentResults.length > 0 && recentResults[0].result) {
-      const resultNum = parseInt(recentResults[0].result);
-      const parity: ParityChoice = resultNum % 2 === 0 ? 'even' : 'odd';
-      setLastResult({ number: resultNum, parity });
+      const result = recentResults[0].result;
+      // Result is now directly 'odd' or 'even' string from the game controller
+      if (result !== 'odd' && result !== 'even') {
+        return;
+      }
+      const parity = result as ParityChoice;
+      setLastResult({ number: 0, parity });
       setShowResult(true);
 
       if (localBet && localBet.choice === parity) {
         const winAmount = localBet.amount * 1.95;
         toast({
           title: "🎉 You Won!",
-          description: `Number ${resultNum} is ${parity}! You won ₹${winAmount}`,
+          description: `Result is ${parity}! You won ₹${winAmount}`,
         });
         refetchBalance();
       } else if (localBet) {
         toast({
           title: "Better luck next time!",
-          description: `Number ${resultNum} is ${parity}. Keep playing!`,
+          description: `Result was ${parity}. Keep playing!`,
           variant: "destructive",
         });
       }
@@ -296,7 +300,7 @@ export default function ParityGame() {
                   animate={{ rotateY: [0, 360] }}
                   transition={{ duration: 0.6 }}
                 >
-                  <span className="text-5xl font-bold text-white">{lastResult.number}</span>
+                  <span className="text-4xl font-bold text-white capitalize">{lastResult.parity}</span>
                 </motion.div>
                 <h2 className="text-4xl font-bold capitalize mb-2">{lastResult.parity}</h2>
                 <p className="text-muted-foreground text-lg">Round Result</p>
@@ -315,9 +319,8 @@ export default function ParityGame() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {recentResults.length > 0 ? recentResults.map((round, index) => {
-                const num = parseInt(round.result || '0');
-                const parity = num % 2 === 0 ? 'even' : 'odd';
+              {recentResults.length > 0 ? recentResults.filter(round => round.result === 'odd' || round.result === 'even').map((round, index) => {
+                const parity = round.result as ParityChoice;
                 return (
                   <motion.div
                     key={round.id}
@@ -327,7 +330,7 @@ export default function ParityGame() {
                       parity === 'even' ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-cyan-400 to-cyan-500'
                     }`}
                   >
-                    <span className="text-sm font-bold text-white">{num}</span>
+                    <span className="text-xs font-bold text-white capitalize">{parity[0].toUpperCase()}</span>
                   </motion.div>
                 );
               }) : (
