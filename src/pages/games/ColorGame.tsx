@@ -57,7 +57,12 @@ export default function ColorGame() {
   // Handle completed rounds
   useEffect(() => {
     if (recentResults.length > 0 && recentResults[0].result) {
-      const latestResult = recentResults[0].result as GameColor;
+      const result = recentResults[0].result;
+      // Validate that the result is a valid GameColor
+      if (result !== 'red' && result !== 'green' && result !== 'violet') {
+        return;
+      }
+      const latestResult = result as GameColor;
       setLastResult(latestResult);
       setShowResult(true);
       
@@ -330,7 +335,7 @@ export default function ColorGame() {
 
         {/* Result Display */}
         <AnimatePresence>
-          {showResult && lastResult && (
+          {showResult && lastResult && colorConfig[lastResult] && (
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
