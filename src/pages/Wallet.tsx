@@ -104,7 +104,7 @@ export default function Wallet() {
         upiId: depositUPIAccount.upi_id,
         payeeName: depositUPIAccount.holder_name,
         amount: amount,
-        transactionNote: `Deposit to QuickBetWin`,
+        transactionNote: `Deposit to GenXWIN`,
         transactionRef: transactionRef,
       },
       () => {

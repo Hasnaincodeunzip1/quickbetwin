@@ -159,8 +159,9 @@ export default function ColorGame() {
         <div className="container max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <h1 className="text-xl font-bold flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            <span className="text-game-red">Color</span>
-            <span className="text-game-green">Win</span>
+            <span className="text-game-red">Gen</span>
+            <span className="text-game-green">X</span>
+            <span className="text-game-violet">WIN</span>
           </h1>
           <div className="flex items-center gap-2 bg-secondary px-3 py-1.5 rounded-full">
             <Wallet className="w-4 h-4 text-primary" />
