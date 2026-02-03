@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export type GameType = 'color' | 'parity' | 'bigsmall' | 'dice' | 'number' | 'spin';
 export type RoundStatus = 'betting' | 'locked' | 'completed';
+export type DurationMinutes = 1 | 2 | 3 | 5;
 
 export interface GameRound {
   id: string;
@@ -20,24 +21,25 @@ export interface GameRound {
 
 interface UseGameRoundsOptions {
   gameType: GameType;
-  durationMinutes?: number;
+  durationMinutes: DurationMinutes;
 }
 
-export function useGameRounds({ gameType }: UseGameRoundsOptions) {
+export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOptions) {
   const [currentRound, setCurrentRound] = useState<GameRound | null>(null);
   const [recentResults, setRecentResults] = useState<GameRound[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(0);
   const { user } = useAuth();
 
-  // Fetch current active or locked round
+  // Fetch current active or locked round for specific duration
   const fetchCurrentRound = useCallback(async () => {
     try {
-      // Get active round for this game type (betting or locked status)
+      // Get active round for this game type AND duration
       const { data: activeRound } = await supabase
         .from('game_rounds')
         .select('*')
         .eq('game_type', gameType)
+        .eq('duration', durationMinutes)
         .in('status', ['betting', 'locked'])
         .order('round_number', { ascending: false })
         .limit(1)
@@ -51,15 +53,16 @@ export function useGameRounds({ gameType }: UseGameRoundsOptions) {
     } catch (error) {
       console.error('Error fetching current round:', error);
     }
-  }, [gameType]);
+  }, [gameType, durationMinutes]);
 
-  // Fetch recent completed rounds
+  // Fetch recent completed rounds for specific duration
   const fetchRecentResults = useCallback(async () => {
     try {
       const { data } = await supabase
         .from('game_rounds')
         .select('*')
         .eq('game_type', gameType)
+        .eq('duration', durationMinutes)
         .eq('status', 'completed')
         .not('result', 'is', null)
         .order('round_number', { ascending: false })
@@ -73,7 +76,7 @@ export function useGameRounds({ gameType }: UseGameRoundsOptions) {
     } finally {
       setIsLoading(false);
     }
-  }, [gameType]);
+  }, [gameType, durationMinutes]);
 
   // Timer countdown for current round
   useEffect(() => {
@@ -95,13 +98,14 @@ export function useGameRounds({ gameType }: UseGameRoundsOptions) {
     return () => clearInterval(interval);
   }, [currentRound]);
 
-  // Subscribe to real-time updates
+  // Subscribe to real-time updates for specific duration
   useEffect(() => {
+    setIsLoading(true);
     fetchCurrentRound();
     fetchRecentResults();
 
     const channel = supabase
-      .channel(`game_rounds_${gameType}`)
+      .channel(`game_rounds_${gameType}_${durationMinutes}`)
       .on(
         'postgres_changes',
         {
@@ -113,11 +117,14 @@ export function useGameRounds({ gameType }: UseGameRoundsOptions) {
         (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const round = payload.new as GameRound;
-            if (round.status === 'betting' || round.status === 'locked') {
-              setCurrentRound(round);
-            } else if (round.status === 'completed') {
-              setCurrentRound(null);
-              fetchRecentResults();
+            // Only update if duration matches
+            if (round.duration === durationMinutes) {
+              if (round.status === 'betting' || round.status === 'locked') {
+                setCurrentRound(round);
+              } else if (round.status === 'completed') {
+                setCurrentRound(null);
+                fetchRecentResults();
+              }
             }
           }
         }
@@ -127,7 +134,7 @@ export function useGameRounds({ gameType }: UseGameRoundsOptions) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [gameType, fetchCurrentRound, fetchRecentResults]);
+  }, [gameType, durationMinutes, fetchCurrentRound, fetchRecentResults]);
 
   return {
     currentRound,

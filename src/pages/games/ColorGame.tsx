@@ -3,12 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
-import { useGameRounds, GameType } from '@/hooks/useGameRounds';
+import { useGameRounds, GameType, DurationMinutes } from '@/hooks/useGameRounds';
 import { useBets } from '@/hooks/useBets';
 import { formatCurrency, getColorMultiplier } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WaitingForRound } from '@/components/games/WaitingForRound';
+import { DurationSelector } from '@/components/games/DurationSelector';
 import { 
   Wallet, 
   Gamepad2, 
@@ -29,8 +30,12 @@ export default function ColorGame() {
   const { balance, refetchBalance } = useWallet();
   const { placeBet, currentBet, isPlacingBet, clearCurrentBet, fetchBetForRound } = useBets();
   
+  const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'color';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ gameType });
+  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ 
+    gameType, 
+    durationMinutes: selectedDuration 
+  });
 
   const [selectedColor, setSelectedColor] = useState<GameColor | null>(null);
   const [betAmount, setBetAmount] = useState(100);
@@ -113,7 +118,7 @@ export default function ColorGame() {
     setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));
   };
 
-  const handlePlaceBet = useCallback(async () => {
+  const handlePlaceBet = async () => {
     if (!selectedColor || !isBettingOpen || localBet || isPlacingBet || !currentRound) return;
 
     if (betAmount > balance) {
@@ -130,7 +135,7 @@ export default function ColorGame() {
       setLocalBet({ color: selectedColor, amount: betAmount });
       refetchBalance();
     }
-  }, [selectedColor, isBettingOpen, localBet, isPlacingBet, betAmount, balance, currentRound, placeBet, refetchBalance]);
+  };
 
   const presetAmounts = [50, 100, 200, 500, 1000];
 
@@ -160,6 +165,13 @@ export default function ColorGame() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
+        {/* Duration Selector */}
+        <DurationSelector 
+          selectedDuration={selectedDuration}
+          onDurationChange={setSelectedDuration}
+          disabled={!!localBet}
+        />
+
         {/* Waiting State or Timer */}
         {!currentRound ? (
           <WaitingForRound gameName="Color Prediction" />
@@ -350,7 +362,7 @@ export default function ColorGame() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <History className="w-4 h-4" />
-              Recent Results
+              Recent Results ({selectedDuration} min)
             </CardTitle>
           </CardHeader>
           <CardContent>

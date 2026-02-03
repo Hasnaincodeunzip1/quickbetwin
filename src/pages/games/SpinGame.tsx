@@ -3,12 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
-import { useGameRounds, GameType } from '@/hooks/useGameRounds';
+import { useGameRounds, GameType, DurationMinutes } from '@/hooks/useGameRounds';
 import { useBets } from '@/hooks/useBets';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WaitingForRound } from '@/components/games/WaitingForRound';
+import { DurationSelector } from '@/components/games/DurationSelector';
 import { 
   Wallet, 
   Gamepad2, 
@@ -39,8 +40,12 @@ export default function SpinGame() {
   const { balance, refetchBalance } = useWallet();
   const { placeBet: placeBetAPI, isPlacingBet, clearCurrentBet, fetchBetForRound } = useBets();
 
+  const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'spin';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ gameType });
+  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ 
+    gameType, 
+    durationMinutes: selectedDuration 
+  });
 
   const [betAmount, setBetAmount] = useState(100);
   const [reels, setReels] = useState<SpinSymbol[]>(['🍒', '🍋', '🍊']);
@@ -61,7 +66,6 @@ export default function SpinGame() {
   useEffect(() => {
     if (recentResults.length > 0 && recentResults[0].result) {
       const resultStr = recentResults[0].result;
-      // Result format: "🍒,🍒,🍒" or similar
       const resultReels = resultStr.split(',') as SpinSymbol[];
       setReels(resultReels);
       setShowResult(true);
@@ -123,58 +127,11 @@ export default function SpinGame() {
     return null;
   }
 
-  // Handle result from admin
-  useEffect(() => {
-    if (recentResults.length > 0 && recentResults[0].result) {
-      const resultStr = recentResults[0].result;
-      // Result format: "🍒,🍒,🍒" or similar
-      const resultReels = resultStr.split(',') as SpinSymbol[];
-      setReels(resultReels);
-      setShowResult(true);
-
-      const allMatch = resultReels[0] === resultReels[1] && resultReels[1] === resultReels[2];
-      const twoMatch = resultReels[0] === resultReels[1] || resultReels[1] === resultReels[2] || resultReels[0] === resultReels[2];
-
-      if (hasBet) {
-        if (allMatch) {
-          const winSymbol = resultReels[0];
-          const winAmount = betAmount * multipliers[winSymbol];
-          setLastWin({ amount: winAmount, symbol: winSymbol });
-          toast({
-            title: "🎰 JACKPOT!",
-            description: `Triple ${symbolNames[winSymbol]}! You won ₹${winAmount}`,
-          });
-        } else if (twoMatch) {
-          const winAmount = betAmount * 1.5;
-          setLastWin({ amount: winAmount, symbol: resultReels[0] });
-          toast({
-            title: "🎰 Two of a Kind!",
-            description: `You won ₹${winAmount}`,
-          });
-        } else {
-          toast({
-            title: "No match",
-            description: "Better luck next time!",
-            variant: "destructive",
-          });
-        }
-        refetchBalance();
-      }
-
-      setTimeout(() => {
-        setShowResult(false);
-        setLastWin(null);
-        setHasBet(false);
-        refetchBalance();
-      }, 3000);
-    }
-  }, [recentResults, hasBet, betAmount, refetchBalance]);
-
   const handleBetAmountChange = (delta: number) => {
     setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));
   };
 
-  const handlePlaceBet = useCallback(async () => {
+  const handlePlaceBet = async () => {
     if (!isBettingOpen || hasBet || isPlacingBet || !currentRound) return;
 
     if (betAmount > balance) {
@@ -188,7 +145,7 @@ export default function SpinGame() {
       toast({ title: "Bet Placed!", description: `₹${betAmount} bet placed. Wait for the spin!` });
       refetchBalance();
     }
-  }, [isBettingOpen, hasBet, isPlacingBet, betAmount, balance, currentRound, placeBetAPI, refetchBalance]);
+  };
 
   const presetAmounts = [50, 100, 200, 500, 1000];
   const canBet = isBettingOpen && !hasBet && currentRound;
@@ -218,6 +175,13 @@ export default function SpinGame() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
+        {/* Duration Selector */}
+        <DurationSelector 
+          selectedDuration={selectedDuration}
+          onDurationChange={setSelectedDuration}
+          disabled={hasBet}
+        />
+
         {!currentRound ? (
           <WaitingForRound gameName="Lucky Spin" />
         ) : (
@@ -313,7 +277,7 @@ export default function SpinGame() {
 
         {/* Recent Spins */}
         <Card className="game-card">
-          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><History className="w-4 h-4" /> Recent Spins</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><History className="w-4 h-4" /> Recent Spins ({selectedDuration} min)</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2">
               {recentResults.slice(0, 5).map((round, index) => {

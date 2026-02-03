@@ -3,12 +3,13 @@ import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
-import { useGameRounds, GameType } from '@/hooks/useGameRounds';
+import { useGameRounds, GameType, DurationMinutes } from '@/hooks/useGameRounds';
 import { useBets } from '@/hooks/useBets';
 import { formatCurrency } from '@/lib/formatters';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WaitingForRound } from '@/components/games/WaitingForRound';
+import { DurationSelector } from '@/components/games/DurationSelector';
 import { 
   Wallet, 
   Gamepad2, 
@@ -30,8 +31,12 @@ export default function ParityGame() {
   const { balance, refetchBalance } = useWallet();
   const { placeBet, isPlacingBet, clearCurrentBet, fetchBetForRound } = useBets();
 
+  const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'parity';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ gameType });
+  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ 
+    gameType, 
+    durationMinutes: selectedDuration 
+  });
 
   const [selectedChoice, setSelectedChoice] = useState<ParityChoice | null>(null);
   const [betAmount, setBetAmount] = useState(100);
@@ -101,44 +106,11 @@ export default function ParityGame() {
     return null;
   }
 
-  // Handle completed rounds
-  useEffect(() => {
-    if (recentResults.length > 0 && recentResults[0].result) {
-      const resultNum = parseInt(recentResults[0].result);
-      const parity: ParityChoice = resultNum % 2 === 0 ? 'even' : 'odd';
-      setLastResult({ number: resultNum, parity });
-      setShowResult(true);
-
-      if (localBet && localBet.choice === parity) {
-        const winAmount = localBet.amount * 1.95;
-        toast({
-          title: "🎉 You Won!",
-          description: `Number ${resultNum} is ${parity}! You won ₹${winAmount}`,
-        });
-        refetchBalance();
-      } else if (localBet) {
-        toast({
-          title: "Better luck next time!",
-          description: `Number ${resultNum} is ${parity}. Keep playing!`,
-          variant: "destructive",
-        });
-      }
-
-      setTimeout(() => {
-        setShowResult(false);
-        setLocalBet(null);
-        clearCurrentBet();
-        setSelectedChoice(null);
-        refetchBalance();
-      }, 3000);
-    }
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
-
   const handleBetAmountChange = (delta: number) => {
     setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));
   };
 
-  const handlePlaceBet = useCallback(async () => {
+  const handlePlaceBet = async () => {
     if (!selectedChoice || !isBettingOpen || localBet || isPlacingBet || !currentRound) return;
 
     if (betAmount > balance) {
@@ -155,7 +127,7 @@ export default function ParityGame() {
       setLocalBet({ choice: selectedChoice, amount: betAmount });
       refetchBalance();
     }
-  }, [selectedChoice, isBettingOpen, localBet, isPlacingBet, betAmount, balance, currentRound, placeBet, refetchBalance]);
+  };
 
   const presetAmounts = [50, 100, 200, 500, 1000];
   const canBet = isBettingOpen && !localBet && currentRound;
@@ -179,6 +151,13 @@ export default function ParityGame() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
+        {/* Duration Selector */}
+        <DurationSelector 
+          selectedDuration={selectedDuration}
+          onDurationChange={setSelectedDuration}
+          disabled={!!localBet}
+        />
+
         {!currentRound ? (
           <WaitingForRound gameName="Fast Parity" />
         ) : (
@@ -331,7 +310,7 @@ export default function ParityGame() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <History className="w-4 h-4" />
-              Recent Results
+              Recent Results ({selectedDuration} min)
             </CardTitle>
           </CardHeader>
           <CardContent>
