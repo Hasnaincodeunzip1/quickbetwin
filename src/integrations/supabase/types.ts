@@ -503,6 +503,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_wallet_balance: {
+        Args: { p_amount: number; p_user_id: string }
+        Returns: undefined
+      }
       decrement_bank_balance: {
         Args: { account_id: string; withdrawal_amount: number }
         Returns: undefined
@@ -535,6 +539,10 @@ export type Database = {
           p_vip_level: Database["public"]["Enums"]["vip_level"]
         }
         Returns: boolean
+      }
+      refund_wallet_balance: {
+        Args: { p_amount: number; p_user_id: string }
+        Returns: undefined
       }
     }
     Enums: {
