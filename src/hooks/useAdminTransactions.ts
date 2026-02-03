@@ -103,22 +103,14 @@ export function useAdminTransactions() {
 
       if (txError) throw txError;
 
-      // For deposits, add to wallet balance and update bank stats
+      // For deposits, add to wallet balance using RPC function
       if (tx.type === 'deposit') {
-        const { data: wallet, error: walletError } = await supabase
-          .from('wallets')
-          .select('balance')
-          .eq('user_id', tx.user_id)
-          .single();
+        const { error: walletError } = await supabase.rpc('add_wallet_balance', {
+          p_user_id: tx.user_id,
+          p_amount: Number(tx.amount)
+        });
 
         if (walletError) throw walletError;
-
-        const { error: updateError } = await supabase
-          .from('wallets')
-          .update({ balance: Number(wallet.balance) + Number(tx.amount) })
-          .eq('user_id', tx.user_id);
-
-        if (updateError) throw updateError;
 
         // Update bank account stats if assigned
         if (tx.assigned_bank_account_id) {
@@ -178,22 +170,14 @@ export function useAdminTransactions() {
 
       if (txError) throw txError;
 
-      // For rejected withdrawals, refund the amount back to wallet
+      // For rejected withdrawals, refund the amount back to wallet using RPC function
       if (tx.type === 'withdrawal') {
-        const { data: wallet, error: walletError } = await supabase
-          .from('wallets')
-          .select('balance')
-          .eq('user_id', tx.user_id)
-          .single();
+        const { error: refundError } = await supabase.rpc('refund_wallet_balance', {
+          p_user_id: tx.user_id,
+          p_amount: Number(tx.amount)
+        });
 
-        if (walletError) throw walletError;
-
-        const { error: updateError } = await supabase
-          .from('wallets')
-          .update({ balance: Number(wallet.balance) + Number(tx.amount) })
-          .eq('user_id', tx.user_id);
-
-        if (updateError) throw updateError;
+        if (refundError) throw refundError;
       }
 
       toast.success('Transaction rejected');
