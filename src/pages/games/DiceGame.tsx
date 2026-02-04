@@ -53,6 +53,7 @@ export default function DiceGame() {
   const [localBet, setLocalBet] = useState<{ number: number; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [lastProcessedRoundId, setLastProcessedRoundId] = useState<string | null>(null);
 
   // Sync bet state for the current round
   useEffect(() => {
@@ -85,36 +86,46 @@ export default function DiceGame() {
     return () => { cancelled = true; };
   }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
+  // Handle completed rounds - only trigger for NEW results
   useEffect(() => {
-    if (recentResults.length > 0 && recentResults[0].result) {
-      const result = parseInt(recentResults[0].result);
-      setLastResult(result);
-      setShowResult(true);
+    if (recentResults.length === 0 || !recentResults[0].result) return;
+    
+    const latestRound = recentResults[0];
+    // Skip if we already processed this round
+    if (latestRound.id === lastProcessedRoundId) return;
+    
+    const result = parseInt(latestRound.result);
+    if (isNaN(result)) return;
+    
+    setLastProcessedRoundId(latestRound.id);
+    setLastResult(result);
+    setShowResult(true);
 
-      if (localBet && localBet.number === result) {
-        const winAmount = localBet.amount * 5.5;
-        toast({
-          title: "🎯 Perfect Hit!",
-          description: `Dice landed on ${result}! You won ₹${winAmount}`,
-        });
-        refetchBalance();
-      } else if (localBet) {
-        toast({
-          title: "Not this time!",
-          description: `Dice landed on ${result}. Try again!`,
-          variant: "destructive",
-        });
-      }
-
-      setTimeout(() => {
-        setShowResult(false);
-        setLocalBet(null);
-        clearCurrentBet();
-        setSelectedNumber(null);
-        refetchBalance();
-      }, 3000);
+    if (localBet && localBet.number === result) {
+      const winAmount = localBet.amount * 5.5;
+      toast({
+        title: "🎯 Perfect Hit!",
+        description: `Dice landed on ${result}! You won ₹${winAmount}`,
+      });
+      refetchBalance();
+    } else if (localBet) {
+      toast({
+        title: "Not this time!",
+        description: `Dice landed on ${result}. Try again!`,
+        variant: "destructive",
+      });
     }
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+
+    const timeout = setTimeout(() => {
+      setShowResult(false);
+      setLocalBet(null);
+      clearCurrentBet();
+      setSelectedNumber(null);
+      refetchBalance();
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet, lastProcessedRoundId]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -250,12 +261,12 @@ export default function DiceGame() {
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><History className="w-4 h-4" /> Recent Rolls ({selectedDuration} min)</CardTitle></CardHeader>
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {recentResults.length > 0 ? recentResults.map((round, index) => {
+              {recentResults.length > 0 ? recentResults.map((round) => {
                 const num = parseInt(round.result || '1');
                 return (
-                  <motion.div key={round.id} initial={{ opacity: 0, scale: 0.8, rotateY: 180 }} animate={{ opacity: 1, scale: 1, rotateY: 0 }} transition={{ delay: index * 0.05 }} className={`w-12 h-12 rounded-full bg-gradient-to-br ${diceColors[num - 1]} flex items-center justify-center flex-shrink-0 shadow-lg`}>
+                  <div key={round.id} className={`w-12 h-12 rounded-full bg-gradient-to-br ${diceColors[num - 1]} flex items-center justify-center flex-shrink-0 shadow-lg`}>
                     <span className="text-2xl">{diceEmojis[num - 1]}</span>
-                  </motion.div>
+                  </div>
                 );
               }) : (
                 <p className="text-sm text-muted-foreground py-2">No rolls yet</p>
