@@ -210,9 +210,9 @@ export default function NumberGame() {
                     <Crown className="w-3 h-3" /> 10x Jackpot
                   </span>
                 </div>
-                <motion.div key={timeLeft} initial={{ scale: 1 }} animate={{ scale: timeLeft <= 10 ? [1, 1.1, 1] : 1 }} className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive' : 'text-primary'}`}>
+                <div className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive animate-pulse' : 'text-primary'}`}>
                   {formatTime(timeLeft)}
-                </motion.div>
+                </div>
                 <p className="text-sm text-muted-foreground mt-2">Pick 0-9, win 10x your bet!</p>
               </CardContent>
             </Card>
@@ -254,15 +254,25 @@ export default function NumberGame() {
         <AnimatePresence>
           {showResult && lastResult !== null && (
             <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md">
-              <motion.div initial={{ y: 50 }} animate={{ y: 0 }} className="text-center">
-                <motion.div initial={{ scale: 0 }} animate={{ scale: [0, 1.2, 1] }} transition={{ duration: 0.5 }} className={`w-40 h-40 rounded-full mx-auto mb-4 bg-gradient-to-br ${numberColors[lastResult]} flex items-center justify-center shadow-2xl`}>
+              <motion.div
+                initial={{ y: 24, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className="text-center"
+              >
+                <motion.div
+                  className={`w-40 h-40 rounded-full mx-auto mb-4 bg-gradient-to-br ${numberColors[lastResult]} flex items-center justify-center shadow-2xl`}
+                  initial={{ scale: 0.92 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+                >
                   <span className="text-7xl font-bold text-white">{lastResult}</span>
                 </motion.div>
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="flex items-center justify-center gap-2">
+                <div className="flex items-center justify-center gap-2">
                   <Sparkles className="w-6 h-6 text-yellow-500" />
                   <h2 className="text-3xl font-bold">Winning Number</h2>
                   <Sparkles className="w-6 h-6 text-yellow-500" />
-                </motion.div>
+                </div>
               </motion.div>
             </motion.div>
           )}

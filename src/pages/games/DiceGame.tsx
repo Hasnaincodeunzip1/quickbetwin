@@ -207,9 +207,9 @@ export default function DiceGame() {
                     <Sparkles className="w-3 h-3" /> 6x Payout
                   </span>
                 </div>
-                <motion.div key={timeLeft} initial={{ scale: 1 }} animate={{ scale: timeLeft <= 10 ? [1, 1.1, 1] : 1 }} className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive' : 'text-primary'}`}>
+                <div className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive animate-pulse' : 'text-primary'}`}>
                   {formatTime(timeLeft)}
-                </motion.div>
+                </div>
               </CardContent>
             </Card>
 
@@ -250,8 +250,18 @@ export default function DiceGame() {
         <AnimatePresence>
           {showResult && lastResult && (
             <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md">
-              <motion.div initial={{ y: 50 }} animate={{ y: 0 }} className="text-center">
-                <motion.div className={`w-40 h-40 rounded-3xl mx-auto mb-4 bg-gradient-to-br ${diceColors[lastResult - 1]} flex items-center justify-center shadow-2xl`} animate={{ scale: [1, 1.1, 1] }} transition={{ repeat: Infinity, duration: 1 }}>
+              <motion.div
+                initial={{ y: 24, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className="text-center"
+              >
+                <motion.div
+                  className={`w-40 h-40 rounded-3xl mx-auto mb-4 bg-gradient-to-br ${diceColors[lastResult - 1]} flex items-center justify-center shadow-2xl`}
+                  initial={{ scale: 0.92 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 220, damping: 16 }}
+                >
                   <span className="text-8xl">{diceEmojis[lastResult - 1]}</span>
                 </motion.div>
                 <h2 className="text-4xl font-bold mb-2">Rolled: {lastResult}</h2>

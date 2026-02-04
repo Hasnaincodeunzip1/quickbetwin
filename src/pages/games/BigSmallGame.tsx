@@ -198,9 +198,9 @@ export default function BigSmallGame() {
                     {isLocked ? '🔒 Locked' : '🎲 Open'}
                   </span>
                 </div>
-                <motion.div key={timeLeft} initial={{ scale: 1 }} animate={{ scale: timeLeft <= 5 ? [1, 1.15, 1] : 1 }} className={`text-7xl font-bold font-mono ${timeLeft <= 5 ? 'text-destructive' : 'text-primary'}`}>
+                <div className={`text-7xl font-bold font-mono ${timeLeft <= 5 ? 'text-destructive animate-pulse' : 'text-primary'}`}>
                   {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
-                </motion.div>
+                </div>
                 <div className="flex justify-center gap-4 mt-3 text-sm">
                   <span className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-full border border-orange-500/30">Big: 11-18</span>
                   <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full border border-yellow-500/30">Small: 3-10</span>
@@ -260,16 +260,21 @@ export default function BigSmallGame() {
         <AnimatePresence>
           {showResult && lastResult && (
             <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }} className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md">
-              <motion.div initial={{ y: 50 }} animate={{ y: 0 }} className="text-center">
+              <motion.div
+                initial={{ y: 24, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className="text-center"
+              >
                 <div className="flex justify-center gap-4 mb-6">
                   {lastResult.dice.map((d, i) => (
-                    <motion.div key={i} initial={{ rotateX: 0, y: -50 }} animate={{ rotateX: 360, y: 0 }} transition={{ delay: i * 0.2, duration: 0.5 }} className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center text-background shadow-xl">
+                    <div key={i} className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center text-background shadow-xl">
                       <DiceIcon value={d} />
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
-                <motion.h2 className="text-5xl font-bold mb-2" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.6 }}>{lastResult.total}</motion.h2>
-                <motion.p className={`text-2xl font-bold ${lastResult.size === 'big' ? 'text-orange-500' : 'text-yellow-500'}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.8 }}>{lastResult.size.toUpperCase()}</motion.p>
+                <h2 className="text-5xl font-bold mb-2">{lastResult.total}</h2>
+                <p className={`text-2xl font-bold ${lastResult.size === 'big' ? 'text-orange-500' : 'text-yellow-500'}`}>{lastResult.size.toUpperCase()}</p>
               </motion.div>
             </motion.div>
           )}

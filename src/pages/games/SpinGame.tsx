@@ -214,9 +214,9 @@ export default function SpinGame() {
                     {isLocked ? '🔒 Spinning...' : '🎰 Open'}
                   </span>
                 </div>
-                <motion.div key={timeLeft} initial={{ scale: 1 }} animate={{ scale: timeLeft <= 10 ? [1, 1.1, 1] : 1 }} className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive' : 'text-primary'}`}>
+                <div className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive animate-pulse' : 'text-primary'}`}>
                   {formatTime(timeLeft)}
-                </motion.div>
+                </div>
               </CardContent>
             </Card>
 
