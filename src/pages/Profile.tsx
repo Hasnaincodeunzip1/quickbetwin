@@ -70,7 +70,7 @@ export default function Profile() {
   const vipLevel = profile?.vip_level || 'none';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#0a0f2e] via-background to-background pb-24">
+    <div className="min-h-screen bg-gradient-to-b from-[#0a0f2e] via-background to-background pb-28">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-gradient-to-r from-[#1a1f4e] via-[#1e2761] to-[#1a1f4e] border-b border-primary/20">
         <div className="container max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
