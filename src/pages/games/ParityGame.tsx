@@ -34,7 +34,7 @@ export default function ParityGame() {
 
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'parity';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
+  const { currentRound, recentResults, isBettingOpen, isLocked } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -183,8 +183,8 @@ export default function ParityGame() {
           disabled={!!localBet}
         />
 
-        {!currentRound || isTransitioning ? (
-          <WaitingForRound gameName="Fast Parity" isTransitioning={isTransitioning} />
+        {!currentRound ? (
+          <WaitingForRound gameName="Fast Parity" />
         ) : (
           <>
             <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">
@@ -198,14 +198,8 @@ export default function ParityGame() {
                     {isLocked ? '🔒 Locked' : <><Zap className="w-3 h-3 inline" /> Open</>}
                   </span>
                 </div>
-                <div className={`text-7xl font-bold font-mono ${timeLeft <= 5 ? 'text-destructive animate-pulse' : 'text-primary'}`}>
-                  {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
-                </div>
-                <div className="mt-3 h-2 bg-secondary rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-[width] duration-1000 ease-linear"
-                    style={{ width: `${(timeLeft / (currentRound.duration * 60)) * 100}%` }}
-                  />
+                <div className="text-4xl font-bold text-primary">
+                  Round #{currentRound.round_number}
                 </div>
               </CardContent>
             </Card>

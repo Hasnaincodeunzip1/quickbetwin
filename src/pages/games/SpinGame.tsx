@@ -43,7 +43,7 @@ export default function SpinGame() {
 
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'spin';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
+  const { currentRound, recentResults, isBettingOpen, isLocked } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -170,11 +170,6 @@ export default function SpinGame() {
 
   const canBet = Boolean(isBettingOpen && !hasBet && currentRound);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0f2e] via-background to-background pb-24">
@@ -201,8 +196,8 @@ export default function SpinGame() {
           disabled={hasBet}
         />
 
-        {!currentRound || isTransitioning ? (
-          <WaitingForRound gameName="Lucky Spin" isTransitioning={isTransitioning} />
+        {!currentRound ? (
+          <WaitingForRound gameName="Lucky Spin" />
         ) : (
           <>
             <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">
@@ -214,8 +209,8 @@ export default function SpinGame() {
                     {isLocked ? '🔒 Spinning...' : '🎰 Open'}
                   </span>
                 </div>
-                <div className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive animate-pulse' : 'text-primary'}`}>
-                  {formatTime(timeLeft)}
+                <div className="text-4xl font-bold text-primary">
+                  Round #{currentRound.round_number}
                 </div>
               </CardContent>
             </Card>

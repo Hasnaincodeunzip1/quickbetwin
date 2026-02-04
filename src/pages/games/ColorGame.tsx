@@ -13,7 +13,6 @@ import { DurationSelector } from '@/components/games/DurationSelector';
 import { BetAmountInput } from '@/components/games/BetAmountInput';
 import { ColorBettingCards } from '@/components/games/ColorBettingCards';
 import { NumberBalls } from '@/components/games/NumberBalls';
-import { GameTimer } from '@/components/games/GameTimer';
 import { 
   Wallet, 
   Gamepad2, 
@@ -37,7 +36,7 @@ export default function ColorGame() {
   
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'color';
-  const { currentRound, recentResults, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
+  const { currentRound, recentResults, isBettingOpen, isLocked } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -204,8 +203,8 @@ export default function ColorGame() {
         />
 
         {/* Waiting State or Timer */}
-        {!currentRound || isTransitioning ? (
-          <WaitingForRound gameName="Color Prediction" isTransitioning={isTransitioning} />
+        {!currentRound ? (
+          <WaitingForRound gameName="Color Prediction" />
         ) : (
           <>
             {/* Timer & Round Info */}
@@ -220,10 +219,9 @@ export default function ColorGame() {
                     {isLocked ? '🔒 Locked' : '🎲 Betting Open'}
                   </span>
                 </div>
-                <GameTimer 
-                  endTime={currentRound.end_time} 
-                  duration={currentRound.duration}
-                />
+                <div className="text-4xl font-bold text-primary">
+                  Round #{currentRound.round_number}
+                </div>
               </CardContent>
             </Card>
 

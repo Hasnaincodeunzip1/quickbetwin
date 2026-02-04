@@ -41,7 +41,7 @@ export default function BigSmallGame() {
 
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'bigsmall';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
+  const { currentRound, recentResults, isBettingOpen, isLocked } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -185,8 +185,8 @@ export default function BigSmallGame() {
           disabled={!!localBet}
         />
 
-        {!currentRound || isTransitioning ? (
-          <WaitingForRound gameName="Big/Small" isTransitioning={isTransitioning} />
+        {!currentRound ? (
+          <WaitingForRound gameName="Big/Small" />
         ) : (
           <>
             <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">
@@ -198,8 +198,8 @@ export default function BigSmallGame() {
                     {isLocked ? '🔒 Locked' : '🎲 Open'}
                   </span>
                 </div>
-                <div className={`text-7xl font-bold font-mono ${timeLeft <= 5 ? 'text-destructive animate-pulse' : 'text-primary'}`}>
-                  {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+                <div className="text-4xl font-bold text-primary">
+                  Round #{currentRound.round_number}
                 </div>
                 <div className="flex justify-center gap-4 mt-3 text-sm">
                   <span className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-full border border-orange-500/30">Big: 11-18</span>
