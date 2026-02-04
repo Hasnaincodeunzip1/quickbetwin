@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,7 +53,8 @@ export default function DiceGame() {
   const [localBet, setLocalBet] = useState<{ number: number; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [lastProcessedRoundId, setLastProcessedRoundId] = useState<string | null>(null);
+  // Ref (not state) so StrictMode/dev double-effects can't re-trigger the result overlay.
+  const lastProcessedRoundIdRef = useRef<string | null>(null);
 
   // Sync bet state for the current round
   useEffect(() => {
@@ -92,12 +93,12 @@ export default function DiceGame() {
     
     const latestRound = recentResults[0];
     // Skip if we already processed this round
-    if (latestRound.id === lastProcessedRoundId) return;
+    if (latestRound.id === lastProcessedRoundIdRef.current) return;
     
     const result = parseInt(latestRound.result);
     if (isNaN(result)) return;
     
-    setLastProcessedRoundId(latestRound.id);
+    lastProcessedRoundIdRef.current = latestRound.id;
     setLastResult(result);
     setShowResult(true);
 
@@ -125,7 +126,7 @@ export default function DiceGame() {
     }, 3000);
     
     return () => clearTimeout(timeout);
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet, lastProcessedRoundId]);
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

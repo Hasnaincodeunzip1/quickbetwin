@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -51,7 +51,8 @@ export default function BigSmallGame() {
   const [localBet, setLocalBet] = useState<{ choice: SizeChoice; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<{ dice: number[]; total: number; size: SizeChoice } | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [lastProcessedRoundId, setLastProcessedRoundId] = useState<string | null>(null);
+  // Ref (not state) so StrictMode/dev double-effects can't re-trigger the result overlay.
+  const lastProcessedRoundIdRef = useRef<string | null>(null);
 
   // Sync bet state for the current round
   useEffect(() => {
@@ -90,14 +91,14 @@ export default function BigSmallGame() {
     
     const latestRound = recentResults[0];
     // Skip if we already processed this round
-    if (latestRound.id === lastProcessedRoundId) return;
+    if (latestRound.id === lastProcessedRoundIdRef.current) return;
     
     const resultStr = latestRound.result;
     const dice = resultStr.split(',').map(Number);
     const total = dice.reduce((a, b) => a + b, 0);
     const size: SizeChoice = total >= 11 ? 'big' : 'small';
     
-    setLastProcessedRoundId(latestRound.id);
+    lastProcessedRoundIdRef.current = latestRound.id;
     setLastResult({ dice, total, size });
     setShowResult(true);
 
@@ -125,7 +126,7 @@ export default function BigSmallGame() {
     }, 3000);
     
     return () => clearTimeout(timeout);
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet, lastProcessedRoundId]);
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {

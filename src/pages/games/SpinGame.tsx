@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,7 +53,8 @@ export default function SpinGame() {
   const [lastWin, setLastWin] = useState<{ amount: number; symbol: SpinSymbol } | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [hasBet, setHasBet] = useState(false);
-  const [lastProcessedRoundId, setLastProcessedRoundId] = useState<string | null>(null);
+  // Ref (not state) so StrictMode/dev double-effects can't re-trigger the result logic.
+  const lastProcessedRoundIdRef = useRef<string | null>(null);
 
   // Sync bet state for the current round
   useEffect(() => {
@@ -86,9 +87,9 @@ export default function SpinGame() {
     
     const latestRound = recentResults[0];
     // Skip if we already processed this round
-    if (latestRound.id === lastProcessedRoundId) return;
+    if (latestRound.id === lastProcessedRoundIdRef.current) return;
     
-    setLastProcessedRoundId(latestRound.id);
+    lastProcessedRoundIdRef.current = latestRound.id;
     const resultStr = latestRound.result;
     const resultReels = resultStr.split(',') as SpinSymbol[];
     setReels(resultReels);
@@ -131,7 +132,7 @@ export default function SpinGame() {
     }, 3000);
     
     return () => clearTimeout(timeout);
-  }, [recentResults, hasBet, betAmount, refetchBalance, lastProcessedRoundId]);
+  }, [recentResults, hasBet, betAmount, refetchBalance]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
