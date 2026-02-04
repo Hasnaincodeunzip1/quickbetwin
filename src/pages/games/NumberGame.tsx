@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,17 +10,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WaitingForRound } from '@/components/games/WaitingForRound';
 import { DurationSelector } from '@/components/games/DurationSelector';
+import { BetAmountInput } from '@/components/games/BetAmountInput';
+import { NumberBalls } from '@/components/games/NumberBalls';
 import { 
   Wallet, 
-  Gamepad2, 
   History, 
-  Users, 
   ArrowLeft,
-  Minus,
-  Plus,
-  Hash,
   Crown,
-  Sparkles
+  Sparkles,
+  Home,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  User
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -43,15 +44,36 @@ export default function NumberGame() {
   const [lastResult, setLastResult] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
 
+  // Sync bet state for the current round
   useEffect(() => {
-    if (currentRound) {
-      fetchBetForRound(currentRound.id);
-    } else {
+    let cancelled = false;
+
+    const sync = async () => {
+      if (!currentRound) {
+        clearCurrentBet();
+        setLocalBet(null);
+        setSelectedNumber(null);
+        return;
+      }
+
       clearCurrentBet();
       setLocalBet(null);
       setSelectedNumber(null);
-    }
-  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+
+      const bet = await fetchBetForRound(currentRound.id);
+      if (cancelled || !bet) return;
+
+      const num = parseInt(bet.bet_choice);
+      if (!isNaN(num)) {
+        setSelectedNumber(num);
+        setBetAmount(bet.amount);
+        setLocalBet({ number: num, amount: bet.amount });
+      }
+    };
+
+    sync();
+    return () => { cancelled = true; };
+  }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
   useEffect(() => {
     if (recentResults.length > 0 && recentResults[0].result) {
@@ -84,7 +106,6 @@ export default function NumberGame() {
     }
   }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
 
-  // Auth redirect - must be after all hooks
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate('/auth', { replace: true });
@@ -99,13 +120,7 @@ export default function NumberGame() {
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  const handleBetAmountChange = (delta: number) => {
-    setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));
-  };
+  if (!isAuthenticated) return null;
 
   const handlePlaceBet = async () => {
     if (selectedNumber === null || !isBettingOpen || localBet || isPlacingBet || !currentRound) return;
@@ -122,8 +137,7 @@ export default function NumberGame() {
     }
   };
 
-  const presetAmounts = [50, 100, 200, 500, 1000];
-  const canBet = isBettingOpen && !localBet && currentRound;
+  const canBet = Boolean(isBettingOpen && !localBet && currentRound);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -132,16 +146,16 @@ export default function NumberGame() {
   };
 
   const numberColors = [
-    'from-rose-500 to-rose-600',
-    'from-pink-500 to-pink-600',
-    'from-fuchsia-500 to-fuchsia-600',
-    'from-purple-500 to-purple-600',
-    'from-violet-500 to-violet-600',
-    'from-indigo-500 to-indigo-600',
-    'from-blue-500 to-blue-600',
-    'from-cyan-500 to-cyan-600',
-    'from-teal-500 to-teal-600',
-    'from-emerald-500 to-emerald-600',
+    'from-violet-400 to-violet-600',
+    'from-green-400 to-green-600',
+    'from-red-400 to-red-600',
+    'from-green-400 to-green-600',
+    'from-red-400 to-red-600',
+    'from-violet-400 to-violet-600',
+    'from-red-400 to-red-600',
+    'from-green-400 to-green-600',
+    'from-red-400 to-red-600',
+    'from-green-400 to-green-600',
   ];
 
   return (
@@ -152,7 +166,7 @@ export default function NumberGame() {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-lg font-bold flex items-center gap-2">
-            <Hash className="w-5 h-5 text-emerald-500" />
+            <span className="text-2xl">🎱</span>
             Number Guess
           </h1>
           <div className="flex items-center gap-2 bg-secondary/80 px-3 py-1.5 rounded-full border border-primary/30">
@@ -163,7 +177,6 @@ export default function NumberGame() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
-        {/* Duration Selector */}
         <DurationSelector 
           selectedDuration={selectedDuration}
           onDurationChange={setSelectedDuration}
@@ -174,69 +187,49 @@ export default function NumberGame() {
           <WaitingForRound gameName="Number Guess" />
         ) : (
           <>
-            <Card className="game-card overflow-hidden">
+            <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">
               <div className="absolute inset-0 bg-gradient-to-br from-green-500/20 via-transparent to-emerald-500/20" />
               <CardContent className="relative pt-6 text-center">
                 <div className="flex justify-center gap-2 mb-3">
-                  <span className="px-3 py-1 bg-secondary rounded-full text-xs font-medium">Round #{currentRound.round_number}</span>
-                  <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-medium flex items-center gap-1">
-                    <Crown className="w-3 h-3" /> 9x Jackpot
+                  <span className="px-3 py-1 bg-primary/20 rounded-full text-xs font-medium border border-primary/30">Round #{currentRound.round_number}</span>
+                  <span className="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs font-medium flex items-center gap-1 border border-emerald-500/30">
+                    <Crown className="w-3 h-3" /> 10x Jackpot
                   </span>
                 </div>
-                <motion.div key={timeLeft} initial={{ scale: 1 }} animate={{ scale: timeLeft <= 10 ? [1, 1.1, 1] : 1 }} className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive' : 'text-foreground'}`}>
+                <motion.div key={timeLeft} initial={{ scale: 1 }} animate={{ scale: timeLeft <= 10 ? [1, 1.1, 1] : 1 }} className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive' : 'text-primary'}`}>
                   {formatTime(timeLeft)}
                 </motion.div>
-                <p className="text-sm text-muted-foreground mt-2">Pick 0-9, win 9x your bet!</p>
+                <p className="text-sm text-muted-foreground mt-2">Pick 0-9, win 10x your bet!</p>
               </CardContent>
             </Card>
 
-            <Card className="game-card">
+            <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Crown className="w-4 h-4 text-emerald-500" />
-                  Pick Your Lucky Number (9x payout)
+                  Pick Your Lucky Number (10x payout)
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-5 gap-2">
-                  {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                    <motion.button
-                      key={num}
-                      whileHover={{ scale: canBet ? 1.05 : 1 }}
-                      whileTap={{ scale: canBet ? 0.95 : 1 }}
-                      onClick={() => canBet && setSelectedNumber(num)}
-                      disabled={!canBet}
-                      className={`relative h-16 rounded-2xl bg-gradient-to-br ${numberColors[num]} transition-all overflow-hidden ${selectedNumber === num ? 'ring-4 ring-white scale-110 shadow-lg z-10' : 'opacity-75 hover:opacity-100'} ${!canBet ? 'cursor-not-allowed opacity-50' : ''}`}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                      <div className="absolute inset-0 flex items-center justify-center">
-                        <span className="text-2xl font-bold text-white">{num}</span>
-                      </div>
-                      {localBet?.number === num && (
-                        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-1 -right-1 w-6 h-6 bg-white rounded-full flex items-center justify-center shadow-lg">
-                          <span className="text-xs font-bold text-background">✓</span>
-                        </motion.div>
-                      )}
-                    </motion.button>
-                  ))}
-                </div>
+                <NumberBalls
+                  selectedNumber={selectedNumber}
+                  onSelect={(num) => canBet && setSelectedNumber(num)}
+                  disabled={!canBet}
+                  gameType="number"
+                />
               </CardContent>
             </Card>
 
-            <Card className="game-card">
+            <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
               <CardHeader className="pb-2"><CardTitle className="text-sm">Bet Amount</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-center gap-4">
-                  <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(-50)} disabled={!canBet || betAmount <= 10} className="w-14 h-14 rounded-full"><Minus className="w-6 h-6" /></Button>
-                  <div className="text-4xl font-bold w-36 text-center">{formatCurrency(betAmount)}</div>
-                  <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(50)} disabled={!canBet || betAmount >= balance} className="w-14 h-14 rounded-full"><Plus className="w-6 h-6" /></Button>
-                </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {presetAmounts.map((amount) => (
-                    <Button key={amount} variant={betAmount === amount ? "default" : "outline"} size="sm" onClick={() => canBet && setBetAmount(Math.min(amount, balance))} disabled={!canBet}>{formatCurrency(amount)}</Button>
-                  ))}
-                </div>
-                <Button onClick={handlePlaceBet} disabled={selectedNumber === null || !canBet || betAmount > balance || isPlacingBet} className="w-full h-16 text-xl font-bold bg-gradient-to-r from-green-500 to-emerald-500 hover:opacity-90 text-white">
+                <BetAmountInput
+                  value={betAmount}
+                  onChange={setBetAmount}
+                  maxBalance={balance}
+                  disabled={!canBet}
+                />
+                <Button onClick={handlePlaceBet} disabled={selectedNumber === null || !canBet || betAmount > balance || isPlacingBet} className="w-full h-14 text-lg font-bold bg-gradient-to-r from-green-500 to-emerald-500 hover:opacity-90 text-white shadow-lg shadow-green-500/30">
                   {isPlacingBet ? 'Placing Bet...' : localBet ? `✓ ${formatCurrency(localBet.amount)} on ${localBet.number}` : selectedNumber !== null ? `Place Bet - ${formatCurrency(betAmount)}` : 'Pick a Number'}
                 </Button>
               </CardContent>
@@ -261,14 +254,14 @@ export default function NumberGame() {
           )}
         </AnimatePresence>
 
-        <Card className="game-card">
+        <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><History className="w-4 h-4" /> Recent Results ({selectedDuration} min)</CardTitle></CardHeader>
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {recentResults.length > 0 ? recentResults.map((round, index) => {
                 const num = parseInt(round.result || '0');
                 return (
-                  <motion.div key={round.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className={`w-12 h-12 rounded-xl bg-gradient-to-br ${numberColors[num]} flex items-center justify-center flex-shrink-0 shadow-md`}>
+                  <motion.div key={round.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className={`w-12 h-12 rounded-full bg-gradient-to-br ${numberColors[num]} flex items-center justify-center flex-shrink-0 shadow-lg`}>
                     <span className="text-lg font-bold text-white">{num}</span>
                   </motion.div>
                 );
@@ -280,13 +273,25 @@ export default function NumberGame() {
         </Card>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 glass border-t border-border">
+      <nav className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[#0a0f2e] to-[#1a1f4e] border-t border-primary/20">
         <div className="container max-w-lg mx-auto px-4">
           <div className="flex items-center justify-around py-3">
-            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><Wallet className="w-5 h-5" /><span className="text-xs">Home</span></Link>
-            <Link to="/game/number" className="flex flex-col items-center gap-1 text-primary"><Gamepad2 className="w-5 h-5" /><span className="text-xs">Play</span></Link>
-            <Link to="/history" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><History className="w-5 h-5" /><span className="text-xs">History</span></Link>
-            <Link to="/referral" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><Users className="w-5 h-5" /><span className="text-xs">Referral</span></Link>
+            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <Home className="w-5 h-5" />
+              <span className="text-xs">Home</span>
+            </Link>
+            <Link to="/wallet?action=deposit" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowDownCircle className="w-5 h-5 text-game-green" />
+              <span className="text-xs">Deposit</span>
+            </Link>
+            <Link to="/wallet?action=withdraw" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowUpCircle className="w-5 h-5 text-game-red" />
+              <span className="text-xs">Withdraw</span>
+            </Link>
+            <Link to="/profile" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <User className="w-5 h-5" />
+              <span className="text-xs">Profile</span>
+            </Link>
           </div>
         </div>
       </nav>

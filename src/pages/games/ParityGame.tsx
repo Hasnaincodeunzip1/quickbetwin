@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,16 +10,17 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WaitingForRound } from '@/components/games/WaitingForRound';
 import { DurationSelector } from '@/components/games/DurationSelector';
+import { BetAmountInput } from '@/components/games/BetAmountInput';
 import { 
   Wallet, 
-  Gamepad2, 
   History, 
-  Users, 
   ArrowLeft,
-  Minus,
-  Plus,
   Zap,
-  TrendingUp
+  TrendingUp,
+  Home,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  User
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -44,24 +45,43 @@ export default function ParityGame() {
   const [lastResult, setLastResult] = useState<{ number: number; parity: ParityChoice } | null>(null);
   const [showResult, setShowResult] = useState(false);
 
+  // Sync bet state for the current round
   useEffect(() => {
-    if (currentRound) {
-      fetchBetForRound(currentRound.id);
-    } else {
+    let cancelled = false;
+
+    const sync = async () => {
+      if (!currentRound) {
+        clearCurrentBet();
+        setLocalBet(null);
+        setSelectedChoice(null);
+        return;
+      }
+
       clearCurrentBet();
       setLocalBet(null);
       setSelectedChoice(null);
-    }
-  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+
+      const bet = await fetchBetForRound(currentRound.id);
+      if (cancelled || !bet) return;
+
+      const choice = bet.bet_choice;
+      if (choice === 'odd' || choice === 'even') {
+        setSelectedChoice(choice);
+        setBetAmount(bet.amount);
+        setLocalBet({ choice, amount: bet.amount });
+      }
+    };
+
+    sync();
+    return () => { cancelled = true; };
+  }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
   // Handle completed rounds
   useEffect(() => {
     if (recentResults.length > 0 && recentResults[0].result) {
       const result = recentResults[0].result;
-      // Result is now directly 'odd' or 'even' string from the game controller
-      if (result !== 'odd' && result !== 'even') {
-        return;
-      }
+      if (result !== 'odd' && result !== 'even') return;
+      
       const parity = result as ParityChoice;
       setLastResult({ number: 0, parity });
       setShowResult(true);
@@ -91,7 +111,6 @@ export default function ParityGame() {
     }
   }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
 
-  // Auth redirect - must be after all hooks
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate('/auth', { replace: true });
@@ -106,13 +125,7 @@ export default function ParityGame() {
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  const handleBetAmountChange = (delta: number) => {
-    setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));
-  };
+  if (!isAuthenticated) return null;
 
   const handlePlaceBet = async () => {
     if (!selectedChoice || !isBettingOpen || localBet || isPlacingBet || !currentRound) return;
@@ -133,8 +146,7 @@ export default function ParityGame() {
     }
   };
 
-  const presetAmounts = [50, 100, 200, 500, 1000];
-  const canBet = isBettingOpen && !localBet && currentRound;
+  const canBet = Boolean(isBettingOpen && !localBet && currentRound);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0f2e] via-background to-background pb-24">
@@ -155,7 +167,6 @@ export default function ParityGame() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
-        {/* Duration Selector */}
         <DurationSelector 
           selectedDuration={selectedDuration}
           onDurationChange={setSelectedDuration}
@@ -166,15 +177,14 @@ export default function ParityGame() {
           <WaitingForRound gameName="Fast Parity" />
         ) : (
           <>
-            {/* Timer Card */}
-            <Card className="game-card overflow-hidden">
+            <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-transparent to-cyan-500/20" />
               <CardContent className="relative pt-6 text-center">
                 <div className="flex justify-center gap-2 mb-3">
-                  <span className="px-3 py-1 bg-secondary rounded-full text-xs font-medium">
+                  <span className="px-3 py-1 bg-primary/20 rounded-full text-xs font-medium border border-primary/30">
                     Round #{currentRound.round_number}
                   </span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${isLocked ? 'bg-destructive text-destructive-foreground' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${isLocked ? 'bg-destructive/20 text-destructive border-destructive/30' : 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'}`}>
                     {isLocked ? '🔒 Locked' : <><Zap className="w-3 h-3 inline" /> Open</>}
                   </span>
                 </div>
@@ -183,7 +193,7 @@ export default function ParityGame() {
                   initial={{ scale: 1 }}
                   animate={{ scale: timeLeft <= 5 ? [1, 1.15, 1] : 1 }}
                   className={`text-7xl font-bold font-mono ${
-                    timeLeft <= 5 ? 'text-destructive' : 'text-foreground'
+                    timeLeft <= 5 ? 'text-destructive' : 'text-primary'
                   }`}
                 >
                   {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
@@ -198,8 +208,7 @@ export default function ParityGame() {
               </CardContent>
             </Card>
 
-            {/* Choice Selection */}
-            <Card className="game-card">
+            <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-cyan-500" />
@@ -221,14 +230,15 @@ export default function ParityGame() {
                           : 'bg-gradient-to-br from-blue-500 to-blue-700'
                       } ${
                         selectedChoice === choice 
-                          ? 'ring-4 ring-white scale-105 shadow-[0_0_30px_rgba(255,255,255,0.2)]' 
+                          ? 'ring-4 ring-white scale-105 shadow-2xl' 
                           : 'opacity-85 hover:opacity-100'
                       } ${!canBet ? 'cursor-not-allowed opacity-50' : ''}`}
                     >
                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent" />
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                         <span className="text-3xl font-bold capitalize mb-1">{choice}</span>
-                        <span className="text-sm opacity-90 bg-white/20 px-3 py-1 rounded-full">1.95x</span>
+                        <span className="text-sm opacity-90 bg-white/20 px-3 py-1 rounded-full backdrop-blur-sm">2x</span>
                       </div>
                       {localBet?.choice === choice && (
                         <motion.div 
@@ -236,7 +246,7 @@ export default function ParityGame() {
                           animate={{ scale: 1 }}
                           className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg"
                         >
-                          <span className="text-sm font-bold text-background">✓</span>
+                          <span className="text-sm font-bold text-green-600">✓</span>
                         </motion.div>
                       )}
                     </motion.button>
@@ -245,34 +255,21 @@ export default function ParityGame() {
               </CardContent>
             </Card>
 
-            {/* Bet Amount */}
-            <Card className="game-card">
+            <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Bet Amount</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-center gap-4">
-                  <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(-50)} disabled={!canBet || betAmount <= 10} className="w-14 h-14 rounded-full">
-                    <Minus className="w-6 h-6" />
-                  </Button>
-                  <div className="text-4xl font-bold w-36 text-center">{formatCurrency(betAmount)}</div>
-                  <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(50)} disabled={!canBet || betAmount >= balance} className="w-14 h-14 rounded-full">
-                    <Plus className="w-6 h-6" />
-                  </Button>
-                </div>
-
-                <div className="flex flex-wrap justify-center gap-2">
-                  {presetAmounts.map((amount) => (
-                    <Button key={amount} variant={betAmount === amount ? "default" : "outline"} size="sm" onClick={() => canBet && setBetAmount(Math.min(amount, balance))} disabled={!canBet}>
-                      {formatCurrency(amount)}
-                    </Button>
-                  ))}
-                </div>
-
+                <BetAmountInput
+                  value={betAmount}
+                  onChange={setBetAmount}
+                  maxBalance={balance}
+                  disabled={!canBet}
+                />
                 <Button
                   onClick={handlePlaceBet}
                   disabled={!selectedChoice || !canBet || betAmount > balance || isPlacingBet}
-                  className="w-full h-16 text-xl font-bold bg-gradient-to-r from-blue-500 to-cyan-500 hover:opacity-90 text-white"
+                  className="w-full h-14 text-lg font-bold bg-gradient-to-r from-blue-500 to-cyan-500 hover:opacity-90 text-white shadow-lg shadow-cyan-500/30"
                 >
                   {isPlacingBet ? 'Placing Bet...' : localBet ? `✓ ${formatCurrency(localBet.amount)} on ${localBet.choice}` : selectedChoice ? `Place Bet - ${formatCurrency(betAmount)}` : 'Select Odd or Even'}
                 </Button>
@@ -281,7 +278,6 @@ export default function ParityGame() {
           </>
         )}
 
-        {/* Result Modal */}
         <AnimatePresence>
           {showResult && lastResult && (
             <motion.div
@@ -292,10 +288,10 @@ export default function ParityGame() {
             >
               <motion.div initial={{ y: 50 }} animate={{ y: 0 }} className="text-center">
                 <motion.div 
-                  className={`w-40 h-40 rounded-3xl mx-auto mb-4 flex items-center justify-center ${
+                  className={`w-40 h-40 rounded-3xl mx-auto mb-4 flex items-center justify-center shadow-2xl ${
                     lastResult.parity === 'even' 
-                      ? 'bg-gradient-to-br from-blue-500 to-blue-600 shadow-[0_0_40px_hsl(220_80%_50%/0.5)]' 
-                      : 'bg-gradient-to-br from-cyan-400 to-cyan-500 shadow-[0_0_40px_hsl(180_80%_50%/0.5)]'
+                      ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
+                      : 'bg-gradient-to-br from-cyan-400 to-cyan-500'
                   }`}
                   animate={{ rotateY: [0, 360] }}
                   transition={{ duration: 0.6 }}
@@ -309,8 +305,7 @@ export default function ParityGame() {
           )}
         </AnimatePresence>
 
-        {/* Recent Results */}
-        <Card className="game-card">
+        <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <History className="w-4 h-4" />
@@ -326,7 +321,7 @@ export default function ParityGame() {
                     key={round.id}
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${
+                    className={`w-12 h-12 rounded-full flex flex-col items-center justify-center flex-shrink-0 shadow-lg ${
                       parity === 'even' ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-cyan-400 to-cyan-500'
                     }`}
                   >
@@ -341,13 +336,25 @@ export default function ParityGame() {
         </Card>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 glass border-t border-border">
+      <nav className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[#0a0f2e] to-[#1a1f4e] border-t border-primary/20">
         <div className="container max-w-lg mx-auto px-4">
           <div className="flex items-center justify-around py-3">
-            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><Wallet className="w-5 h-5" /><span className="text-xs">Home</span></Link>
-            <Link to="/game/parity" className="flex flex-col items-center gap-1 text-primary"><Gamepad2 className="w-5 h-5" /><span className="text-xs">Play</span></Link>
-            <Link to="/history" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><History className="w-5 h-5" /><span className="text-xs">History</span></Link>
-            <Link to="/referral" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><Users className="w-5 h-5" /><span className="text-xs">Referral</span></Link>
+            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <Home className="w-5 h-5" />
+              <span className="text-xs">Home</span>
+            </Link>
+            <Link to="/wallet?action=deposit" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowDownCircle className="w-5 h-5 text-game-green" />
+              <span className="text-xs">Deposit</span>
+            </Link>
+            <Link to="/wallet?action=withdraw" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowUpCircle className="w-5 h-5 text-game-red" />
+              <span className="text-xs">Withdraw</span>
+            </Link>
+            <Link to="/profile" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <User className="w-5 h-5" />
+              <span className="text-xs">Profile</span>
+            </Link>
           </div>
         </div>
       </nav>
