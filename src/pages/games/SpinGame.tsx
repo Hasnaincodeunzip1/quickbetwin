@@ -157,17 +157,17 @@ export default function SpinGame() {
   };
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <header className="sticky top-0 z-50 glass border-b border-border">
+    <div className="min-h-screen bg-gradient-to-b from-[#0a0f2e] via-background to-background pb-24">
+      <header className="sticky top-0 z-50 bg-gradient-to-r from-[#1a1f4e] via-[#1e2761] to-[#1a1f4e] border-b border-primary/20">
         <div className="container max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-          <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 hover:bg-secondary rounded-full transition-colors">
+          <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 hover:bg-secondary/50 rounded-full transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-lg font-bold flex items-center gap-2">
             <Star className="w-5 h-5 text-yellow-500" />
             Lucky Spin
           </h1>
-          <div className="flex items-center gap-2 bg-secondary px-3 py-1.5 rounded-full">
+          <div className="flex items-center gap-2 bg-secondary/80 px-3 py-1.5 rounded-full border border-primary/30">
             <Wallet className="w-4 h-4 text-primary" />
             <span className="font-semibold">{formatCurrency(balance)}</span>
           </div>

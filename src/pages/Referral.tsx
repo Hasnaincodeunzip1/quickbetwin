@@ -46,7 +46,7 @@ export default function Referral() {
   }, [isAuthenticated, authLoading, navigate]);
 
   const referralCode = profile?.referral_code || 'LOADING...';
-  const referralLink = `https://genxwin.app/ref/${referralCode}`;
+  const referralLink = `https://genzwin.app/ref/${referralCode}`;
   
   const hasVip = currentLevel !== 'none';
   const referralBonus = currentTier?.referralBonus || 0;
@@ -69,7 +69,7 @@ export default function Referral() {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Join GenXWIN',
+          title: 'Join GenZWIN',
           text: `Use my referral code ${referralCode} and start winning!`,
           url: referralLink,
         });

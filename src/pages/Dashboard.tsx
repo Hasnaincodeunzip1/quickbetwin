@@ -63,18 +63,25 @@ export default function Dashboard() {
       </Suspense>
       
       {/* Header */}
-      <header className="sticky top-0 z-50 glass border-b border-border">
+      <header className="sticky top-0 z-50 bg-gradient-to-r from-[#1a1f4e] via-[#1e2761] to-[#1a1f4e] border-b border-primary/20">
         <div className="container max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-xl font-bold">
-            <span className="text-game-red">GenX</span>
-            <span className="text-game-green">WIN</span>
+          <h1 className="text-xl font-bold flex items-center gap-1">
+            <span className="text-game-green">Gen</span>
+            <span className="text-primary">Z</span>
+            <span className="text-game-red">WIN</span>
           </h1>
-          <button 
-            onClick={handleLogout}
-            className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-secondary/80 px-3 py-1.5 rounded-full">
+              <Wallet className="w-4 h-4 text-primary" />
+              <span className="font-semibold text-sm">{formatCurrency(balance)}</span>
+            </div>
+            <button 
+              onClick={handleLogout}
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
