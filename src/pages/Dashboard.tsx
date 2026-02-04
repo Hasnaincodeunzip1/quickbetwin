@@ -1,34 +1,72 @@
 import { useEffect, lazy, Suspense } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
-import { useUserBets } from '@/hooks/useUserBets';
 import { formatCurrency } from '@/lib/formatters';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { 
-  Wallet, 
-  ArrowUpCircle, 
-  ArrowDownCircle, 
-  Gamepad2, 
-  History, 
-  Users, 
-  LogOut,
-  Trophy,
-  TrendingUp
-} from 'lucide-react';
+import { Wallet, Sparkles, Flame, Zap, Star, Dice1, Target, RotateCcw } from 'lucide-react';
+import { BottomNav } from '@/components/BottomNav';
 
 // Lazy load non-critical components
-const VipSection = lazy(() => import('@/components/vip/VipSection').then(m => ({ default: m.VipSection })));
 const WinLossPopups = lazy(() => import('@/components/dashboard/WinLossPopups').then(m => ({ default: m.WinLossPopups })));
+
+const games = [
+  { 
+    name: 'Color Prediction', 
+    path: '/game/color', 
+    gradient: 'from-rose-500 via-red-500 to-orange-500',
+    icon: '🎨',
+    description: 'Predict the winning color',
+    hot: true
+  },
+  { 
+    name: 'Fast Parity', 
+    path: '/game/parity', 
+    gradient: 'from-blue-500 via-cyan-500 to-teal-500',
+    icon: '⚡',
+    description: 'Odd or Even - Quick wins',
+    hot: false
+  },
+  { 
+    name: 'Big / Small', 
+    path: '/game/bigsmall', 
+    gradient: 'from-amber-500 via-orange-500 to-yellow-500',
+    icon: '🎲',
+    description: 'Guess big or small',
+    hot: true
+  },
+  { 
+    name: 'Dice Roll', 
+    path: '/game/dice', 
+    gradient: 'from-purple-500 via-violet-500 to-fuchsia-500',
+    icon: '🎯',
+    description: 'Roll and win big',
+    hot: false
+  },
+  { 
+    name: 'Number Guess', 
+    path: '/game/number', 
+    gradient: 'from-emerald-500 via-green-500 to-lime-500',
+    icon: '🔢',
+    description: 'Pick your lucky number',
+    hot: false
+  },
+  { 
+    name: 'Lucky Spin', 
+    path: '/game/spin', 
+    gradient: 'from-pink-500 via-rose-500 to-red-500',
+    icon: '🎰',
+    description: 'Spin to win prizes',
+    hot: true
+  },
+];
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { user, profile, isAuthenticated, isAdmin, isLoading, logout } = useAuth();
+  const { user, profile, isAuthenticated, isAdmin, isLoading } = useAuth();
   const { balance } = useWallet();
-  const { bets, isLoading: betsLoading } = useUserBets();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -42,21 +80,8 @@ export default function Dashboard() {
   
   const displayName = profile?.name || user.email?.split('@')[0] || 'Player';
 
-  const recentBets = bets.slice(0, 3);
-
-  const stats = {
-    totalBets: bets.length,
-    wins: bets.filter(b => b.won).length,
-    totalWinnings: bets.filter(b => b.won).reduce((sum, b) => sum + (Number(b.payout) || 0), 0),
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/auth', { replace: true });
-  };
-
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-gradient-to-b from-[#0a0f2e] via-background to-background pb-24">
       {/* Win/Loss Popups - lazy loaded */}
       <Suspense fallback={null}>
         <WinLossPopups />
@@ -70,220 +95,124 @@ export default function Dashboard() {
             <span className="text-primary">Z</span>
             <span className="text-game-red">WIN</span>
           </h1>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-secondary/80 px-3 py-1.5 rounded-full">
-              <Wallet className="w-4 h-4 text-primary" />
-              <span className="font-semibold text-sm">{formatCurrency(balance)}</span>
-            </div>
-            <button 
-              onClick={handleLogout}
-              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+          <div className="flex items-center gap-2 bg-secondary/80 px-3 py-1.5 rounded-full">
+            <Wallet className="w-4 h-4 text-primary" />
+            <span className="font-semibold text-sm">{formatCurrency(balance)}</span>
           </div>
         </div>
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-6 space-y-6">
-        {/* Welcome & Balance Card */}
+        {/* Welcome Banner */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <Card className="game-card overflow-hidden relative">
-            <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10 pointer-events-none z-0" />
-            <CardContent className="relative z-10 pt-6">
-              <p className="text-muted-foreground text-sm">Welcome back,</p>
-              <p className="text-lg font-semibold mb-4">{displayName}</p>
-              
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Wallet className="w-6 h-6 text-primary" />
+          <Card className="overflow-hidden relative border-0 bg-gradient-to-r from-primary/20 via-purple-500/20 to-pink-500/20">
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg width=%2260%22 height=%2260%22 viewBox=%220 0 60 60%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cg fill=%22none%22 fill-rule=%22evenodd%22%3E%3Cg fill=%22%23ffffff%22 fill-opacity=%220.03%22%3E%3Cpath d=%22M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-50" />
+            <CardContent className="relative z-10 pt-6 pb-6">
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <p className="text-muted-foreground text-sm">Welcome back,</p>
+                  <p className="text-xl font-bold">{displayName} 👋</p>
+                  <p className="text-sm text-muted-foreground mt-1">Ready to win big today?</p>
                 </div>
-                <div>
-                  <p className="text-muted-foreground text-xs">Wallet Balance</p>
-                  <p className="text-3xl font-bold text-primary">{formatCurrency(balance)}</p>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Balance</p>
+                  <p className="text-2xl font-bold text-primary">{formatCurrency(balance)}</p>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <Button 
-                  onClick={() => navigate('/wallet?action=deposit')}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground"
-                >
-                  <ArrowDownCircle className="w-4 h-4 mr-2" />
-                  Deposit
-                </Button>
-                <Button 
-                  onClick={() => navigate('/wallet?action=withdraw')}
-                  variant="outline"
-                  className="border-border hover:bg-secondary"
-                >
-                  <ArrowUpCircle className="w-4 h-4 mr-2" />
-                  Withdraw
-                </Button>
               </div>
             </CardContent>
           </Card>
+        </motion.div>
+
+        {/* Hot Games Badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="flex items-center gap-2"
+        >
+          <Flame className="w-5 h-5 text-orange-500" />
+          <span className="text-lg font-bold">Hot Games</span>
+          <Sparkles className="w-4 h-4 text-yellow-500" />
+        </motion.div>
+
+        {/* Games Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="grid grid-cols-2 gap-4"
+        >
+          {games.map((game, index) => (
+            <motion.button
+              key={game.name}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.2 + index * 0.05 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate(game.path)}
+              className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${game.gradient} p-4 text-left shadow-lg hover:shadow-xl transition-shadow`}
+            >
+              {/* Hot badge */}
+              {game.hot && (
+                <div className="absolute top-2 right-2 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <Flame className="w-3 h-3 text-yellow-300" />
+                  <span className="text-xs font-bold text-white">HOT</span>
+                </div>
+              )}
+              
+              {/* Game icon */}
+              <div className="text-4xl mb-3 drop-shadow-lg">{game.icon}</div>
+              
+              {/* Game info */}
+              <h3 className="text-white font-bold text-sm leading-tight mb-1">{game.name}</h3>
+              <p className="text-white/70 text-xs">{game.description}</p>
+              
+              {/* Decorative elements */}
+              <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full blur-2xl" />
+              <div className="absolute -left-4 -top-4 w-16 h-16 bg-white/5 rounded-full blur-xl" />
+            </motion.button>
+          ))}
         </motion.div>
 
         {/* Quick Stats */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-3 gap-3"
+          transition={{ delay: 0.4 }}
         >
-          <Card className="game-card">
-            <CardContent className="pt-4 text-center">
-              <Trophy className="w-5 h-5 mx-auto mb-1 text-yellow-500" />
-              <p className="text-lg font-bold">{stats.wins}</p>
-              <p className="text-xs text-muted-foreground">Wins</p>
-            </CardContent>
-          </Card>
-          <Card className="game-card">
-            <CardContent className="pt-4 text-center">
-              <Gamepad2 className="w-5 h-5 mx-auto mb-1 text-primary" />
-              <p className="text-lg font-bold">{stats.totalBets}</p>
-              <p className="text-xs text-muted-foreground">Total Bets</p>
-            </CardContent>
-          </Card>
-          <Card className="game-card">
-            <CardContent className="pt-4 text-center">
-              <TrendingUp className="w-5 h-5 mx-auto mb-1 text-game-green" />
-              <p className="text-lg font-bold">{formatCurrency(stats.totalWinnings)}</p>
-              <p className="text-xs text-muted-foreground">Winnings</p>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Games Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <Card className="game-card">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Gamepad2 className="w-4 h-4" />
-                Choose Your Game
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { name: 'Color Prediction', path: '/game/color', color: 'from-game-red to-game-green', icon: '🎨' },
-                  { name: 'Fast Parity', path: '/game/parity', color: 'from-blue-500 to-cyan-500', icon: '⚡' },
-                  { name: 'Big/Small', path: '/game/bigsmall', color: 'from-orange-500 to-yellow-500', icon: '🎲' },
-                  { name: 'Dice Roll', path: '/game/dice', color: 'from-purple-500 to-pink-500', icon: '🎯' },
-                  { name: 'Number Guess', path: '/game/number', color: 'from-green-500 to-emerald-500', icon: '🔢' },
-                  { name: 'Lucky Spin', path: '/game/spin', color: 'from-rose-500 to-red-500', icon: '🎰' },
-                ].map((game, index) => (
-                  <motion.button
-                    key={game.name}
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: 0.2 + index * 0.05 }}
-                    onClick={() => navigate(game.path)}
-                    className={`relative p-4 rounded-xl bg-gradient-to-br ${game.color} hover:scale-105 transition-transform text-white text-left`}
-                  >
-                    <span className="text-2xl mb-2 block">{game.icon}</span>
-                    <span className="text-sm font-semibold">{game.name}</span>
-                  </motion.button>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* VIP Section - lazy loaded */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25 }}
-        >
-          <Suspense fallback={<Skeleton className="h-40 w-full rounded-xl" />}>
-            <VipSection />
-          </Suspense>
-        </motion.div>
-
-        {/* Recent Bets */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <Card className="game-card">
-            <CardHeader className="pb-2">
+          <Card className="game-card bg-gradient-to-r from-secondary/50 to-secondary/30">
+            <CardContent className="pt-6">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <History className="w-4 h-4" />
-                  Your Recent Bets
-                </CardTitle>
-                <Link to="/history" className="text-xs text-primary hover:underline">
-                  View All
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {betsLoading ? (
-                <p className="text-center text-muted-foreground py-4">Loading...</p>
-              ) : recentBets.length === 0 ? (
-                <p className="text-center text-muted-foreground py-4">No bets yet. Start playing!</p>
-              ) : (
-                recentBets.map((bet) => (
-                  <div 
-                    key={bet.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-secondary/50"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg ${
-                        bet.bet_choice === 'red' ? 'bg-game-red' :
-                        bet.bet_choice === 'green' ? 'bg-game-green' :
-                        bet.bet_choice === 'violet' ? 'bg-game-violet' :
-                        'bg-primary'
-                      }`} />
-                      <div>
-                        <p className="text-sm font-medium capitalize">{bet.bet_choice}</p>
-                        <p className="text-xs text-muted-foreground">{formatCurrency(Number(bet.amount))}</p>
-                      </div>
-                    </div>
-                    <div className={`text-sm font-bold ${bet.won ? 'text-game-green' : bet.won === false ? 'text-destructive' : 'text-muted-foreground'}`}>
-                      {bet.won === null ? 'Pending' : bet.won ? `+${formatCurrency(Number(bet.payout) || 0)}` : 'Lost'}
-                    </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                    <Zap className="w-6 h-6 text-primary" />
                   </div>
-                ))
-              )}
+                  <div>
+                    <p className="text-sm font-medium">Play & Win</p>
+                    <p className="text-xs text-muted-foreground">Up to 9.8x returns</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-game-green/20 flex items-center justify-center">
+                    <Star className="w-6 h-6 text-game-green" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">VIP Rewards</p>
+                    <p className="text-xs text-muted-foreground">Earn more bonus</p>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </motion.div>
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 glass border-t border-border">
-        <div className="container max-w-lg mx-auto px-4">
-          <div className="flex items-center justify-around py-3">
-            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-primary">
-              <Wallet className="w-5 h-5" />
-              <span className="text-xs">Home</span>
-            </Link>
-            <Link to="/game" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground">
-              <Gamepad2 className="w-5 h-5" />
-              <span className="text-xs">Play</span>
-            </Link>
-            <Link to="/history" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground">
-              <History className="w-5 h-5" />
-              <span className="text-xs">History</span>
-            </Link>
-            <Link to="/referral" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground">
-              <Users className="w-5 h-5" />
-              <span className="text-xs">Referral</span>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <BottomNav />
     </div>
   );
 }
