@@ -43,6 +43,7 @@ export default function NumberGame() {
   const [localBet, setLocalBet] = useState<{ number: number; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [lastProcessedRoundId, setLastProcessedRoundId] = useState<string | null>(null);
 
   // Sync bet state for the current round
   useEffect(() => {
@@ -75,36 +76,46 @@ export default function NumberGame() {
     return () => { cancelled = true; };
   }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
+  // Only trigger result display for NEW results (not on every recentResults change)
   useEffect(() => {
-    if (recentResults.length > 0 && recentResults[0].result) {
-      const result = parseInt(recentResults[0].result);
-      setLastResult(result);
-      setShowResult(true);
+    if (recentResults.length === 0 || !recentResults[0].result) return;
+    
+    const latestRound = recentResults[0];
+    // Skip if we already processed this round
+    if (latestRound.id === lastProcessedRoundId) return;
+    
+    const result = parseInt(latestRound.result);
+    if (isNaN(result)) return;
+    
+    setLastProcessedRoundId(latestRound.id);
+    setLastResult(result);
+    setShowResult(true);
 
-      if (localBet && localBet.number === result) {
-        const winAmount = localBet.amount * 9;
-        toast({
-          title: "🎉 JACKPOT!",
-          description: `Number ${result} hit! You won ₹${winAmount}`,
-        });
-        refetchBalance();
-      } else if (localBet) {
-        toast({
-          title: "Not your number!",
-          description: `Result was ${result}. Better luck next time!`,
-          variant: "destructive",
-        });
-      }
-
-      setTimeout(() => {
-        setShowResult(false);
-        setLocalBet(null);
-        clearCurrentBet();
-        setSelectedNumber(null);
-        refetchBalance();
-      }, 3000);
+    if (localBet && localBet.number === result) {
+      const winAmount = localBet.amount * 9;
+      toast({
+        title: "🎉 JACKPOT!",
+        description: `Number ${result} hit! You won ₹${winAmount}`,
+      });
+      refetchBalance();
+    } else if (localBet) {
+      toast({
+        title: "Not your number!",
+        description: `Result was ${result}. Better luck next time!`,
+        variant: "destructive",
+      });
     }
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+
+    const timeout = setTimeout(() => {
+      setShowResult(false);
+      setLocalBet(null);
+      clearCurrentBet();
+      setSelectedNumber(null);
+      refetchBalance();
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet, lastProcessedRoundId]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -258,12 +269,12 @@ export default function NumberGame() {
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><History className="w-4 h-4" /> Recent Results ({selectedDuration} min)</CardTitle></CardHeader>
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {recentResults.length > 0 ? recentResults.map((round, index) => {
+              {recentResults.length > 0 ? recentResults.map((round) => {
                 const num = parseInt(round.result || '0');
                 return (
-                  <motion.div key={round.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className={`w-12 h-12 rounded-full bg-gradient-to-br ${numberColors[num]} flex items-center justify-center flex-shrink-0 shadow-lg`}>
+                  <div key={round.id} className={`w-12 h-12 rounded-full bg-gradient-to-br ${numberColors[num]} flex items-center justify-center flex-shrink-0 shadow-lg`}>
                     <span className="text-lg font-bold text-white">{num}</span>
-                  </motion.div>
+                  </div>
                 );
               }) : (
                 <p className="text-sm text-muted-foreground py-2">No results yet</p>

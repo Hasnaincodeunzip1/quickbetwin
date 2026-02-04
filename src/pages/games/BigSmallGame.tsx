@@ -51,6 +51,7 @@ export default function BigSmallGame() {
   const [localBet, setLocalBet] = useState<{ choice: SizeChoice; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<{ dice: number[]; total: number; size: SizeChoice } | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [lastProcessedRoundId, setLastProcessedRoundId] = useState<string | null>(null);
 
   // Sync bet state for the current round
   useEffect(() => {
@@ -83,39 +84,48 @@ export default function BigSmallGame() {
     return () => { cancelled = true; };
   }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
+  // Handle completed rounds - only trigger for NEW results
   useEffect(() => {
-    if (recentResults.length > 0 && recentResults[0].result) {
-      const resultStr = recentResults[0].result;
-      const dice = resultStr.split(',').map(Number);
-      const total = dice.reduce((a, b) => a + b, 0);
-      const size: SizeChoice = total >= 11 ? 'big' : 'small';
-      setLastResult({ dice, total, size });
-      setShowResult(true);
+    if (recentResults.length === 0 || !recentResults[0].result) return;
+    
+    const latestRound = recentResults[0];
+    // Skip if we already processed this round
+    if (latestRound.id === lastProcessedRoundId) return;
+    
+    const resultStr = latestRound.result;
+    const dice = resultStr.split(',').map(Number);
+    const total = dice.reduce((a, b) => a + b, 0);
+    const size: SizeChoice = total >= 11 ? 'big' : 'small';
+    
+    setLastProcessedRoundId(latestRound.id);
+    setLastResult({ dice, total, size });
+    setShowResult(true);
 
-      if (localBet && localBet.choice === size) {
-        const winAmount = localBet.amount * 1.95;
-        toast({
-          title: "🎉 You Won!",
-          description: `Total ${total} is ${size}! You won ₹${winAmount}`,
-        });
-        refetchBalance();
-      } else if (localBet) {
-        toast({
-          title: "Better luck next time!",
-          description: `Total ${total} is ${size}. Keep playing!`,
-          variant: "destructive",
-        });
-      }
-
-      setTimeout(() => {
-        setShowResult(false);
-        setLocalBet(null);
-        clearCurrentBet();
-        setSelectedChoice(null);
-        refetchBalance();
-      }, 3000);
+    if (localBet && localBet.choice === size) {
+      const winAmount = localBet.amount * 1.95;
+      toast({
+        title: "🎉 You Won!",
+        description: `Total ${total} is ${size}! You won ₹${winAmount}`,
+      });
+      refetchBalance();
+    } else if (localBet) {
+      toast({
+        title: "Better luck next time!",
+        description: `Total ${total} is ${size}. Keep playing!`,
+        variant: "destructive",
+      });
     }
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+
+    const timeout = setTimeout(() => {
+      setShowResult(false);
+      setLocalBet(null);
+      clearCurrentBet();
+      setSelectedChoice(null);
+      refetchBalance();
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet, lastProcessedRoundId]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -266,14 +276,14 @@ export default function BigSmallGame() {
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><History className="w-4 h-4" /> Recent Results ({selectedDuration} min)</CardTitle></CardHeader>
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {recentResults.length > 0 ? recentResults.map((round, index) => {
+              {recentResults.length > 0 ? recentResults.map((round) => {
                 const dice = round.result?.split(',').map(Number) || [];
                 const total = dice.reduce((a, b) => a + b, 0);
                 const size = total >= 11 ? 'big' : 'small';
                 return (
-                  <motion.div key={round.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className={`w-12 h-12 rounded-full flex flex-col items-center justify-center flex-shrink-0 shadow-lg ${size === 'big' ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-gradient-to-br from-yellow-400 to-yellow-600'}`}>
+                  <div key={round.id} className={`w-12 h-12 rounded-full flex flex-col items-center justify-center flex-shrink-0 shadow-lg ${size === 'big' ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-gradient-to-br from-yellow-400 to-yellow-600'}`}>
                     <span className="text-sm font-bold text-white">{total}</span>
-                  </motion.div>
+                  </div>
                 );
               }) : (
                 <p className="text-sm text-muted-foreground py-2">No results yet</p>

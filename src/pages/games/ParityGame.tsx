@@ -44,6 +44,7 @@ export default function ParityGame() {
   const [localBet, setLocalBet] = useState<{ choice: ParityChoice; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<{ number: number; parity: ParityChoice } | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [lastProcessedRoundId, setLastProcessedRoundId] = useState<string | null>(null);
 
   // Sync bet state for the current round
   useEffect(() => {
@@ -76,40 +77,46 @@ export default function ParityGame() {
     return () => { cancelled = true; };
   }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
-  // Handle completed rounds
+  // Handle completed rounds - only trigger for NEW results
   useEffect(() => {
-    if (recentResults.length > 0 && recentResults[0].result) {
-      const result = recentResults[0].result;
-      if (result !== 'odd' && result !== 'even') return;
-      
-      const parity = result as ParityChoice;
-      setLastResult({ number: 0, parity });
-      setShowResult(true);
+    if (recentResults.length === 0 || !recentResults[0].result) return;
+    
+    const latestRound = recentResults[0];
+    // Skip if we already processed this round
+    if (latestRound.id === lastProcessedRoundId) return;
+    
+    const result = latestRound.result;
+    if (result !== 'odd' && result !== 'even') return;
+    
+    setLastProcessedRoundId(latestRound.id);
+    setLastResult({ number: 0, parity: result });
+    setShowResult(true);
 
-      if (localBet && localBet.choice === parity) {
-        const winAmount = localBet.amount * 1.95;
-        toast({
-          title: "🎉 You Won!",
-          description: `Result is ${parity}! You won ₹${winAmount}`,
-        });
-        refetchBalance();
-      } else if (localBet) {
-        toast({
-          title: "Better luck next time!",
-          description: `Result was ${parity}. Keep playing!`,
-          variant: "destructive",
-        });
-      }
-
-      setTimeout(() => {
-        setShowResult(false);
-        setLocalBet(null);
-        clearCurrentBet();
-        setSelectedChoice(null);
-        refetchBalance();
-      }, 3000);
+    if (localBet && localBet.choice === result) {
+      const winAmount = localBet.amount * 1.95;
+      toast({
+        title: "🎉 You Won!",
+        description: `Result is ${result}! You won ₹${winAmount}`,
+      });
+      refetchBalance();
+    } else if (localBet) {
+      toast({
+        title: "Better luck next time!",
+        description: `Result was ${result}. Keep playing!`,
+        variant: "destructive",
+      });
     }
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+
+    const timeout = setTimeout(() => {
+      setShowResult(false);
+      setLocalBet(null);
+      clearCurrentBet();
+      setSelectedChoice(null);
+      refetchBalance();
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet, lastProcessedRoundId]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -314,19 +321,17 @@ export default function ParityGame() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
-              {recentResults.length > 0 ? recentResults.filter(round => round.result === 'odd' || round.result === 'even').map((round, index) => {
+              {recentResults.length > 0 ? recentResults.filter(round => round.result === 'odd' || round.result === 'even').map((round) => {
                 const parity = round.result as ParityChoice;
                 return (
-                  <motion.div
+                  <div
                     key={round.id}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
                     className={`w-12 h-12 rounded-full flex flex-col items-center justify-center flex-shrink-0 shadow-lg ${
                       parity === 'even' ? 'bg-gradient-to-br from-blue-500 to-blue-600' : 'bg-gradient-to-br from-cyan-400 to-cyan-500'
                     }`}
                   >
                     <span className="text-xs font-bold text-white capitalize">{parity[0].toUpperCase()}</span>
-                  </motion.div>
+                  </div>
                 );
               }) : (
                 <p className="text-sm text-muted-foreground py-2">No results yet</p>

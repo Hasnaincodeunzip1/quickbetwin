@@ -53,6 +53,7 @@ export default function SpinGame() {
   const [lastWin, setLastWin] = useState<{ amount: number; symbol: SpinSymbol } | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [hasBet, setHasBet] = useState(false);
+  const [lastProcessedRoundId, setLastProcessedRoundId] = useState<string | null>(null);
 
   // Sync bet state for the current round
   useEffect(() => {
@@ -79,51 +80,58 @@ export default function SpinGame() {
     return () => { cancelled = true; };
   }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
-  // Handle result from admin
+  // Handle result from admin - only trigger for NEW results
   useEffect(() => {
-    if (recentResults.length > 0 && recentResults[0].result) {
-      const resultStr = recentResults[0].result;
-      const resultReels = resultStr.split(',') as SpinSymbol[];
-      setReels(resultReels);
-      setShowResult(true);
+    if (recentResults.length === 0 || !recentResults[0].result) return;
+    
+    const latestRound = recentResults[0];
+    // Skip if we already processed this round
+    if (latestRound.id === lastProcessedRoundId) return;
+    
+    setLastProcessedRoundId(latestRound.id);
+    const resultStr = latestRound.result;
+    const resultReels = resultStr.split(',') as SpinSymbol[];
+    setReels(resultReels);
+    setShowResult(true);
 
-      const allMatch = resultReels[0] === resultReels[1] && resultReels[1] === resultReels[2];
-      const twoMatch = resultReels[0] === resultReels[1] || resultReels[1] === resultReels[2] || resultReels[0] === resultReels[2];
+    const allMatch = resultReels[0] === resultReels[1] && resultReels[1] === resultReels[2];
+    const twoMatch = resultReels[0] === resultReels[1] || resultReels[1] === resultReels[2] || resultReels[0] === resultReels[2];
 
-      if (hasBet) {
-        if (allMatch) {
-          const winSymbol = resultReels[0];
-          const winAmount = betAmount * multipliers[winSymbol];
-          setLastWin({ amount: winAmount, symbol: winSymbol });
-          toast({
-            title: "🎰 JACKPOT!",
-            description: `Triple ${symbolNames[winSymbol]}! You won ₹${winAmount}`,
-          });
-        } else if (twoMatch) {
-          const winAmount = betAmount * 1.5;
-          setLastWin({ amount: winAmount, symbol: resultReels[0] });
-          toast({
-            title: "🎰 Two of a Kind!",
-            description: `You won ₹${winAmount}`,
-          });
-        } else {
-          toast({
-            title: "No match",
-            description: "Better luck next time!",
-            variant: "destructive",
-          });
-        }
-        refetchBalance();
+    if (hasBet) {
+      if (allMatch) {
+        const winSymbol = resultReels[0];
+        const winAmount = betAmount * multipliers[winSymbol];
+        setLastWin({ amount: winAmount, symbol: winSymbol });
+        toast({
+          title: "🎰 JACKPOT!",
+          description: `Triple ${symbolNames[winSymbol]}! You won ₹${winAmount}`,
+        });
+      } else if (twoMatch) {
+        const winAmount = betAmount * 1.5;
+        setLastWin({ amount: winAmount, symbol: resultReels[0] });
+        toast({
+          title: "🎰 Two of a Kind!",
+          description: `You won ₹${winAmount}`,
+        });
+      } else {
+        toast({
+          title: "No match",
+          description: "Better luck next time!",
+          variant: "destructive",
+        });
       }
-
-      setTimeout(() => {
-        setShowResult(false);
-        setLastWin(null);
-        setHasBet(false);
-        refetchBalance();
-      }, 3000);
+      refetchBalance();
     }
-  }, [recentResults, hasBet, betAmount, refetchBalance]);
+
+    const timeout = setTimeout(() => {
+      setShowResult(false);
+      setLastWin(null);
+      setHasBet(false);
+      refetchBalance();
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+  }, [recentResults, hasBet, betAmount, refetchBalance, lastProcessedRoundId]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -280,19 +288,19 @@ export default function SpinGame() {
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><History className="w-4 h-4" /> Recent Spins ({selectedDuration} min)</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {recentResults.slice(0, 5).map((round, index) => {
+              {recentResults.slice(0, 5).map((round) => {
                 const resultReels = round.result?.split(',') as SpinSymbol[] || [];
                 const allMatch = resultReels.length === 3 && resultReels[0] === resultReels[1] && resultReels[1] === resultReels[2];
                 const twoMatch = resultReels.length === 3 && (resultReels[0] === resultReels[1] || resultReels[1] === resultReels[2] || resultReels[0] === resultReels[2]);
                 return (
-                  <motion.div key={round.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className={`flex items-center justify-between p-3 rounded-xl ${allMatch || twoMatch ? 'bg-gradient-to-r from-game-green/20 to-transparent border border-game-green/30' : 'bg-secondary/30'}`}>
+                  <div key={round.id} className={`flex items-center justify-between p-3 rounded-xl ${allMatch || twoMatch ? 'bg-gradient-to-r from-game-green/20 to-transparent border border-game-green/30' : 'bg-secondary/30'}`}>
                     <div className="flex gap-2 text-2xl">
                       {resultReels.map((r, i) => <span key={i}>{r}</span>)}
                     </div>
                     <span className={`text-sm font-bold ${allMatch || twoMatch ? 'text-game-green' : 'text-muted-foreground'}`}>
                       {allMatch ? `${multipliers[resultReels[0]]}x` : twoMatch ? '1.5x' : 'Miss'}
                     </span>
-                  </motion.div>
+                  </div>
                 );
               })}
               {recentResults.length === 0 && (

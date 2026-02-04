@@ -46,6 +46,7 @@ export default function ColorGame() {
   const [localBet, setLocalBet] = useState<{ color: GameColor; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<GameColor | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [lastProcessedRoundId, setLastProcessedRoundId] = useState<string | null>(null);
 
   // Sync bet state for the current round (prevents controls staying disabled across rounds)
   useEffect(() => {
@@ -81,43 +82,48 @@ export default function ColorGame() {
     };
   }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
-  // Handle completed rounds
+  // Handle completed rounds - only trigger for NEW results
   useEffect(() => {
-    if (recentResults.length > 0 && recentResults[0].result) {
-      const result = recentResults[0].result;
-      // Validate that the result is a valid GameColor
-      if (result !== 'red' && result !== 'green' && result !== 'violet') {
-        return;
-      }
-      const latestResult = result as GameColor;
-      setLastResult(latestResult);
-      setShowResult(true);
-      
-      if (localBet && localBet.color === latestResult) {
-        const multiplier = getColorMultiplier(latestResult);
-        const winAmount = localBet.amount * multiplier;
-        toast({
-          title: "🎉 You Won!",
-          description: `Congratulations! You won ₹${winAmount}`,
-        });
-        refetchBalance();
-      } else if (localBet) {
-        toast({
-          title: "Better luck next time!",
-          description: `The result was ${latestResult}. Keep playing!`,
-          variant: "destructive",
-        });
-      }
-
-      setTimeout(() => {
-        setShowResult(false);
-        setLocalBet(null);
-        clearCurrentBet();
-        setSelectedColor(null);
-        refetchBalance();
-      }, 3000);
+    if (recentResults.length === 0 || !recentResults[0].result) return;
+    
+    const latestRound = recentResults[0];
+    // Skip if we already processed this round
+    if (latestRound.id === lastProcessedRoundId) return;
+    
+    const result = latestRound.result;
+    // Validate that the result is a valid GameColor
+    if (result !== 'red' && result !== 'green' && result !== 'violet') return;
+    
+    setLastProcessedRoundId(latestRound.id);
+    setLastResult(result);
+    setShowResult(true);
+    
+    if (localBet && localBet.color === result) {
+      const multiplier = getColorMultiplier(result);
+      const winAmount = localBet.amount * multiplier;
+      toast({
+        title: "🎉 You Won!",
+        description: `Congratulations! You won ₹${winAmount}`,
+      });
+      refetchBalance();
+    } else if (localBet) {
+      toast({
+        title: "Better luck next time!",
+        description: `The result was ${result}. Keep playing!`,
+        variant: "destructive",
+      });
     }
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+
+    const timeout = setTimeout(() => {
+      setShowResult(false);
+      setLocalBet(null);
+      clearCurrentBet();
+      setSelectedColor(null);
+      refetchBalance();
+    }, 3000);
+    
+    return () => clearTimeout(timeout);
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet, lastProcessedRoundId]);
 
   // Auth redirect - must be after all hooks
   useEffect(() => {
@@ -357,12 +363,9 @@ export default function ColorGame() {
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
               {recentResults.length > 0 ? (
-                recentResults.map((round, index) => (
-                  <motion.div
+                recentResults.map((round) => (
+                  <div
                     key={round.id}
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ delay: index * 0.05 }}
                     className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white font-bold shadow-lg ${
                       round.result === 'red' ? 'bg-gradient-to-br from-red-400 to-red-600' :
                       round.result === 'green' ? 'bg-gradient-to-br from-green-400 to-green-600' :
@@ -370,7 +373,7 @@ export default function ColorGame() {
                     }`}
                   >
                     {round.result?.[0].toUpperCase()}
-                  </motion.div>
+                  </div>
                 ))
               ) : (
                 <p className="text-sm text-muted-foreground py-2">No results yet</p>
