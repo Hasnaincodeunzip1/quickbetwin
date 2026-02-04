@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,7 +46,8 @@ export default function ColorGame() {
   const [localBet, setLocalBet] = useState<{ color: GameColor; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<GameColor | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [lastProcessedRoundId, setLastProcessedRoundId] = useState<string | null>(null);
+  // Ref (not state) so StrictMode/dev double-effects can't re-trigger the result overlay.
+  const lastProcessedRoundIdRef = useRef<string | null>(null);
 
   // Sync bet state for the current round (prevents controls staying disabled across rounds)
   useEffect(() => {
@@ -88,13 +89,13 @@ export default function ColorGame() {
     
     const latestRound = recentResults[0];
     // Skip if we already processed this round
-    if (latestRound.id === lastProcessedRoundId) return;
+    if (latestRound.id === lastProcessedRoundIdRef.current) return;
     
     const result = latestRound.result;
     // Validate that the result is a valid GameColor
     if (result !== 'red' && result !== 'green' && result !== 'violet') return;
     
-    setLastProcessedRoundId(latestRound.id);
+    lastProcessedRoundIdRef.current = latestRound.id;
     setLastResult(result);
     setShowResult(true);
     
@@ -123,7 +124,7 @@ export default function ColorGame() {
     }, 3000);
     
     return () => clearTimeout(timeout);
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet, lastProcessedRoundId]);
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
 
   // Auth redirect - must be after all hooks
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,7 +44,8 @@ export default function ParityGame() {
   const [localBet, setLocalBet] = useState<{ choice: ParityChoice; amount: number } | null>(null);
   const [lastResult, setLastResult] = useState<{ number: number; parity: ParityChoice } | null>(null);
   const [showResult, setShowResult] = useState(false);
-  const [lastProcessedRoundId, setLastProcessedRoundId] = useState<string | null>(null);
+  // Ref (not state) so StrictMode/dev double-effects can't re-trigger the result overlay.
+  const lastProcessedRoundIdRef = useRef<string | null>(null);
 
   // Sync bet state for the current round
   useEffect(() => {
@@ -83,12 +84,12 @@ export default function ParityGame() {
     
     const latestRound = recentResults[0];
     // Skip if we already processed this round
-    if (latestRound.id === lastProcessedRoundId) return;
+    if (latestRound.id === lastProcessedRoundIdRef.current) return;
     
     const result = latestRound.result;
     if (result !== 'odd' && result !== 'even') return;
     
-    setLastProcessedRoundId(latestRound.id);
+    lastProcessedRoundIdRef.current = latestRound.id;
     setLastResult({ number: 0, parity: result });
     setShowResult(true);
 
@@ -116,7 +117,7 @@ export default function ParityGame() {
     }, 3000);
     
     return () => clearTimeout(timeout);
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet, lastProcessedRoundId]);
+  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
