@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,17 +10,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WaitingForRound } from '@/components/games/WaitingForRound';
 import { DurationSelector } from '@/components/games/DurationSelector';
+import { BetAmountInput } from '@/components/games/BetAmountInput';
 import { 
   Wallet, 
-  Gamepad2, 
   History, 
-  Users, 
   ArrowLeft,
-  Minus,
-  Plus,
   Sparkles,
   Star,
-  Zap
+  Zap,
+  Home,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  User
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -53,14 +54,30 @@ export default function SpinGame() {
   const [showResult, setShowResult] = useState(false);
   const [hasBet, setHasBet] = useState(false);
 
+  // Sync bet state for the current round
   useEffect(() => {
-    if (currentRound) {
-      fetchBetForRound(currentRound.id);
-    } else {
+    let cancelled = false;
+
+    const sync = async () => {
+      if (!currentRound) {
+        clearCurrentBet();
+        setHasBet(false);
+        return;
+      }
+
       clearCurrentBet();
       setHasBet(false);
-    }
-  }, [currentRound, fetchBetForRound, clearCurrentBet]);
+
+      const bet = await fetchBetForRound(currentRound.id);
+      if (cancelled || !bet) return;
+      
+      setHasBet(true);
+      setBetAmount(bet.amount);
+    };
+
+    sync();
+    return () => { cancelled = true; };
+  }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
   // Handle result from admin
   useEffect(() => {
@@ -108,7 +125,6 @@ export default function SpinGame() {
     }
   }, [recentResults, hasBet, betAmount, refetchBalance]);
 
-  // Auth redirect - must be after all hooks
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate('/auth', { replace: true });
@@ -123,13 +139,7 @@ export default function SpinGame() {
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  const handleBetAmountChange = (delta: number) => {
-    setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));
-  };
+  if (!isAuthenticated) return null;
 
   const handlePlaceBet = async () => {
     if (!isBettingOpen || hasBet || isPlacingBet || !currentRound) return;
@@ -147,8 +157,7 @@ export default function SpinGame() {
     }
   };
 
-  const presetAmounts = [50, 100, 200, 500, 1000];
-  const canBet = isBettingOpen && !hasBet && currentRound;
+  const canBet = Boolean(isBettingOpen && !hasBet && currentRound);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -175,7 +184,6 @@ export default function SpinGame() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
-        {/* Duration Selector */}
         <DurationSelector 
           selectedDuration={selectedDuration}
           onDurationChange={setSelectedDuration}
@@ -186,24 +194,22 @@ export default function SpinGame() {
           <WaitingForRound gameName="Lucky Spin" />
         ) : (
           <>
-            {/* Timer */}
-            <Card className="game-card overflow-hidden">
+            <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">
               <div className="absolute inset-0 bg-gradient-to-br from-rose-500/20 via-transparent to-yellow-500/20" />
               <CardContent className="relative pt-6 text-center">
                 <div className="flex justify-center gap-2 mb-3">
-                  <span className="px-3 py-1 bg-secondary rounded-full text-xs font-medium">Round #{currentRound.round_number}</span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${isLocked ? 'bg-destructive text-destructive-foreground' : 'bg-yellow-500/20 text-yellow-400'}`}>
+                  <span className="px-3 py-1 bg-primary/20 rounded-full text-xs font-medium border border-primary/30">Round #{currentRound.round_number}</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${isLocked ? 'bg-destructive/20 text-destructive border-destructive/30' : 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30'}`}>
                     {isLocked ? '🔒 Spinning...' : '🎰 Open'}
                   </span>
                 </div>
-                <motion.div key={timeLeft} initial={{ scale: 1 }} animate={{ scale: timeLeft <= 10 ? [1, 1.1, 1] : 1 }} className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive' : 'text-foreground'}`}>
+                <motion.div key={timeLeft} initial={{ scale: 1 }} animate={{ scale: timeLeft <= 10 ? [1, 1.1, 1] : 1 }} className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive' : 'text-primary'}`}>
                   {formatTime(timeLeft)}
                 </motion.div>
               </CardContent>
             </Card>
 
-            {/* Slot Machine Display */}
-            <Card className="game-card overflow-hidden">
+            <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
               <CardContent className="pt-6">
                 <div className="bg-gradient-to-b from-secondary to-secondary/80 rounded-3xl p-1 mb-4">
                   <div className="bg-gradient-to-b from-background to-card rounded-2xl p-4">
@@ -214,7 +220,7 @@ export default function SpinGame() {
                     </div>
                     <div className="flex justify-center gap-3 mb-4">
                       {reels.map((symbol, index) => (
-                        <motion.div key={index} animate={isLocked ? { y: [0, -15, 0, -10, 0] } : {}} transition={{ repeat: isLocked ? Infinity : 0, duration: 0.15 }} className="w-24 h-24 bg-gradient-to-b from-white to-gray-100 rounded-2xl flex items-center justify-center text-5xl shadow-inner border-4 border-secondary">
+                        <motion.div key={index} animate={isLocked ? { y: [0, -15, 0, -10, 0] } : {}} transition={{ repeat: isLocked ? Infinity : 0, duration: 0.15 }} className="w-24 h-24 bg-gradient-to-b from-white to-gray-100 rounded-2xl flex items-center justify-center text-5xl shadow-inner border-4 border-primary/30">
                           <motion.span animate={isLocked ? { scale: [1, 0.9, 1] } : {}} transition={{ repeat: isLocked ? Infinity : 0, duration: 0.1 }}>{symbol}</motion.span>
                         </motion.div>
                       ))}
@@ -234,7 +240,7 @@ export default function SpinGame() {
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   {symbols.map((symbol) => (
-                    <div key={symbol} className="bg-secondary/50 rounded-xl p-2 hover:bg-secondary/70 transition-colors">
+                    <div key={symbol} className="bg-secondary/50 rounded-xl p-2 hover:bg-secondary/70 transition-colors border border-primary/10">
                       <div className="text-2xl mb-1">{symbol}{symbol}{symbol}</div>
                       <p className="text-xs text-muted-foreground font-medium">{multipliers[symbol]}x</p>
                     </div>
@@ -244,21 +250,16 @@ export default function SpinGame() {
               </CardContent>
             </Card>
 
-            {/* Bet Controls */}
-            <Card className="game-card">
+            <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
               <CardHeader className="pb-2"><CardTitle className="text-sm">Bet Amount</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-center gap-4">
-                  <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(-50)} disabled={!canBet || betAmount <= 10} className="w-14 h-14 rounded-full"><Minus className="w-6 h-6" /></Button>
-                  <div className="text-4xl font-bold w-36 text-center">{formatCurrency(betAmount)}</div>
-                  <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(50)} disabled={!canBet || betAmount >= balance} className="w-14 h-14 rounded-full"><Plus className="w-6 h-6" /></Button>
-                </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {presetAmounts.map((amount) => (
-                    <Button key={amount} variant={betAmount === amount ? "default" : "outline"} size="sm" onClick={() => canBet && setBetAmount(Math.min(amount, balance))} disabled={!canBet}>{formatCurrency(amount)}</Button>
-                  ))}
-                </div>
-                <Button onClick={handlePlaceBet} disabled={!canBet || betAmount > balance || isPlacingBet} className="w-full h-20 text-2xl font-bold bg-gradient-to-r from-rose-500 via-red-500 to-orange-500 hover:opacity-90 text-white shadow-lg relative overflow-hidden">
+                <BetAmountInput
+                  value={betAmount}
+                  onChange={setBetAmount}
+                  maxBalance={balance}
+                  disabled={!canBet}
+                />
+                <Button onClick={handlePlaceBet} disabled={!canBet || betAmount > balance || isPlacingBet} className="w-full h-16 text-xl font-bold bg-gradient-to-r from-rose-500 via-red-500 to-orange-500 hover:opacity-90 text-white shadow-lg shadow-rose-500/30 relative overflow-hidden">
                   <motion.div className="absolute inset-0 bg-white/20" animate={canBet ? { x: ['-100%', '100%'] } : {}} transition={{ repeat: Infinity, duration: 2, ease: 'linear' }} />
                   <span className="relative flex items-center gap-2">
                     {hasBet ? (
@@ -275,8 +276,7 @@ export default function SpinGame() {
           </>
         )}
 
-        {/* Recent Spins */}
-        <Card className="game-card">
+        <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><History className="w-4 h-4" /> Recent Spins ({selectedDuration} min)</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -303,13 +303,25 @@ export default function SpinGame() {
         </Card>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 glass border-t border-border">
+      <nav className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[#0a0f2e] to-[#1a1f4e] border-t border-primary/20">
         <div className="container max-w-lg mx-auto px-4">
           <div className="flex items-center justify-around py-3">
-            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><Wallet className="w-5 h-5" /><span className="text-xs">Home</span></Link>
-            <Link to="/game/spin" className="flex flex-col items-center gap-1 text-primary"><Gamepad2 className="w-5 h-5" /><span className="text-xs">Play</span></Link>
-            <Link to="/history" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><History className="w-5 h-5" /><span className="text-xs">History</span></Link>
-            <Link to="/referral" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><Users className="w-5 h-5" /><span className="text-xs">Referral</span></Link>
+            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <Home className="w-5 h-5" />
+              <span className="text-xs">Home</span>
+            </Link>
+            <Link to="/wallet?action=deposit" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowDownCircle className="w-5 h-5 text-game-green" />
+              <span className="text-xs">Deposit</span>
+            </Link>
+            <Link to="/wallet?action=withdraw" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowUpCircle className="w-5 h-5 text-game-red" />
+              <span className="text-xs">Withdraw</span>
+            </Link>
+            <Link to="/profile" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <User className="w-5 h-5" />
+              <span className="text-xs">Profile</span>
+            </Link>
           </div>
         </div>
       </nav>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -30,6 +30,7 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
   const [isLoading, setIsLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(0);
   const { user } = useAuth();
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch current active or locked round for specific duration
   const fetchCurrentRound = useCallback(async () => {
@@ -78,7 +79,7 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
     }
   }, [gameType, durationMinutes]);
 
-  // Timer countdown for current round
+  // Timer countdown for current round - also triggers refetch when time runs out
   useEffect(() => {
     if (!currentRound || currentRound.status === 'completed') {
       setTimeLeft(0);
@@ -90,13 +91,43 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
       const now = Date.now();
       const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
       setTimeLeft(remaining);
+
+      // When timer hits 0, start polling for the new round
+      if (remaining === 0) {
+        // Immediately fetch to check for round status change
+        fetchCurrentRound();
+        fetchRecentResults();
+      }
     };
 
     updateTime();
     const interval = setInterval(updateTime, 1000);
 
     return () => clearInterval(interval);
-  }, [currentRound]);
+  }, [currentRound, fetchCurrentRound, fetchRecentResults]);
+
+  // Polling when no current round exists (waiting for new round)
+  useEffect(() => {
+    // Clear any existing polling
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+
+    // If no current round, poll every 2 seconds for a new one
+    if (!currentRound && !isLoading) {
+      pollIntervalRef.current = setInterval(() => {
+        fetchCurrentRound();
+      }, 2000);
+    }
+
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [currentRound, isLoading, fetchCurrentRound]);
 
   // Subscribe to real-time updates for specific duration
   useEffect(() => {
@@ -124,6 +155,8 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
               } else if (round.status === 'completed') {
                 setCurrentRound(null);
                 fetchRecentResults();
+                // Immediately look for the next round
+                fetchCurrentRound();
               }
             }
           }

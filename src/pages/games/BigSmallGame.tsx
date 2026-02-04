@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,17 +10,18 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WaitingForRound } from '@/components/games/WaitingForRound';
 import { DurationSelector } from '@/components/games/DurationSelector';
+import { BetAmountInput } from '@/components/games/BetAmountInput';
 import { 
   Wallet, 
-  Gamepad2, 
   History, 
-  Users, 
   ArrowLeft,
-  Minus,
-  Plus,
   Dice1, Dice2, Dice3, Dice4, Dice5, Dice6,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Home,
+  ArrowDownCircle,
+  ArrowUpCircle,
+  User
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -51,7 +52,7 @@ export default function BigSmallGame() {
   const [lastResult, setLastResult] = useState<{ dice: number[]; total: number; size: SizeChoice } | null>(null);
   const [showResult, setShowResult] = useState(false);
 
-  // Sync bet state for the current round (prevents controls staying disabled across rounds)
+  // Sync bet state for the current round
   useEffect(() => {
     let cancelled = false;
 
@@ -79,9 +80,7 @@ export default function BigSmallGame() {
     };
 
     sync();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
 
   useEffect(() => {
@@ -118,7 +117,6 @@ export default function BigSmallGame() {
     }
   }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
 
-  // Auth redirect - must be after all hooks
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       navigate('/auth', { replace: true });
@@ -133,13 +131,7 @@ export default function BigSmallGame() {
     );
   }
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
-  const handleBetAmountChange = (delta: number) => {
-    setBetAmount((prev) => Math.max(10, Math.min(balance, prev + delta)));
-  };
+  if (!isAuthenticated) return null;
 
   const handlePlaceBet = async () => {
     if (!selectedChoice || !isBettingOpen || localBet || isPlacingBet || !currentRound) return;
@@ -156,7 +148,6 @@ export default function BigSmallGame() {
     }
   };
 
-  const presetAmounts = [50, 100, 200, 500, 1000];
   const canBet = Boolean(isBettingOpen && !localBet && currentRound);
 
   return (
@@ -175,7 +166,6 @@ export default function BigSmallGame() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
-        {/* Duration Selector */}
         <DurationSelector 
           selectedDuration={selectedDuration}
           onDurationChange={setSelectedDuration}
@@ -186,26 +176,26 @@ export default function BigSmallGame() {
           <WaitingForRound gameName="Big/Small" />
         ) : (
           <>
-            <Card className="game-card overflow-hidden">
+            <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">
               <div className="absolute inset-0 bg-gradient-to-br from-orange-500/20 via-transparent to-yellow-500/20" />
               <CardContent className="relative pt-6 text-center">
                 <div className="flex justify-center gap-2 mb-3">
-                  <span className="px-3 py-1 bg-secondary rounded-full text-xs font-medium">Round #{currentRound.round_number}</span>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${isLocked ? 'bg-destructive text-destructive-foreground' : 'bg-orange-500/20 text-orange-400'}`}>
+                  <span className="px-3 py-1 bg-primary/20 rounded-full text-xs font-medium border border-primary/30">Round #{currentRound.round_number}</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${isLocked ? 'bg-destructive/20 text-destructive border-destructive/30' : 'bg-orange-500/20 text-orange-400 border-orange-500/30'}`}>
                     {isLocked ? '🔒 Locked' : '🎲 Open'}
                   </span>
                 </div>
-                <motion.div key={timeLeft} initial={{ scale: 1 }} animate={{ scale: timeLeft <= 5 ? [1, 1.15, 1] : 1 }} className={`text-7xl font-bold font-mono ${timeLeft <= 5 ? 'text-destructive' : 'text-foreground'}`}>
+                <motion.div key={timeLeft} initial={{ scale: 1 }} animate={{ scale: timeLeft <= 5 ? [1, 1.15, 1] : 1 }} className={`text-7xl font-bold font-mono ${timeLeft <= 5 ? 'text-destructive' : 'text-primary'}`}>
                   {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
                 </motion.div>
                 <div className="flex justify-center gap-4 mt-3 text-sm">
-                  <span className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-full">Big: 11-18</span>
-                  <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full">Small: 3-10</span>
+                  <span className="px-3 py-1 bg-orange-500/20 text-orange-400 rounded-full border border-orange-500/30">Big: 11-18</span>
+                  <span className="px-3 py-1 bg-yellow-500/20 text-yellow-400 rounded-full border border-yellow-500/30">Small: 3-10</span>
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="game-card">
+            <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
               <CardHeader className="pb-2"><CardTitle className="text-sm">Big or Small?</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
@@ -216,18 +206,19 @@ export default function BigSmallGame() {
                       whileTap={{ scale: canBet ? 0.95 : 1 }}
                       onClick={() => canBet && setSelectedChoice(choice)}
                       disabled={!canBet}
-                      className={`relative h-32 rounded-2xl transition-all overflow-hidden ${choice === 'big' ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-gradient-to-br from-yellow-400 to-yellow-600'} ${selectedChoice === choice ? 'ring-4 ring-white scale-105 shadow-lg' : 'opacity-85 hover:opacity-100'} ${!canBet ? 'cursor-not-allowed opacity-50' : ''}`}
+                      className={`relative h-32 rounded-2xl transition-all overflow-hidden ${choice === 'big' ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-gradient-to-br from-yellow-400 to-yellow-600'} ${selectedChoice === choice ? 'ring-4 ring-white scale-105 shadow-2xl' : 'opacity-85 hover:opacity-100'} ${!canBet ? 'cursor-not-allowed opacity-50' : ''}`}
                     >
                       <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-transparent" />
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
                         {choice === 'big' ? <ArrowUp className="w-8 h-8 mb-1" /> : <ArrowDown className="w-8 h-8 mb-1" />}
                         <span className="text-2xl font-bold capitalize">{choice}</span>
                         <span className="text-xs opacity-90 mt-1">{choice === 'big' ? '11-18' : '3-10'}</span>
-                        <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full mt-1">1.95x</span>
+                        <span className="text-sm bg-white/20 px-2 py-0.5 rounded-full mt-1 backdrop-blur-sm">2x</span>
                       </div>
                       {localBet?.choice === choice && (
                         <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-lg">
-                          <span className="text-sm font-bold text-background">✓</span>
+                          <span className="text-sm font-bold text-green-600">✓</span>
                         </motion.div>
                       )}
                     </motion.button>
@@ -236,20 +227,16 @@ export default function BigSmallGame() {
               </CardContent>
             </Card>
 
-            <Card className="game-card">
+            <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
               <CardHeader className="pb-2"><CardTitle className="text-sm">Bet Amount</CardTitle></CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-center gap-4">
-                  <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(-50)} disabled={!canBet || betAmount <= 10} className="w-14 h-14 rounded-full"><Minus className="w-6 h-6" /></Button>
-                  <div className="text-4xl font-bold w-36 text-center">{formatCurrency(betAmount)}</div>
-                  <Button variant="outline" size="icon" onClick={() => handleBetAmountChange(50)} disabled={!canBet || betAmount >= balance} className="w-14 h-14 rounded-full"><Plus className="w-6 h-6" /></Button>
-                </div>
-                <div className="flex flex-wrap justify-center gap-2">
-                  {presetAmounts.map((amount) => (
-                    <Button key={amount} variant={betAmount === amount ? "default" : "outline"} size="sm" onClick={() => canBet && setBetAmount(Math.min(amount, balance))} disabled={!canBet}>{formatCurrency(amount)}</Button>
-                  ))}
-                </div>
-                <Button onClick={handlePlaceBet} disabled={!selectedChoice || !canBet || betAmount > balance || isPlacingBet} className="w-full h-16 text-xl font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:opacity-90 text-white">
+                <BetAmountInput
+                  value={betAmount}
+                  onChange={setBetAmount}
+                  maxBalance={balance}
+                  disabled={!canBet}
+                />
+                <Button onClick={handlePlaceBet} disabled={!selectedChoice || !canBet || betAmount > balance || isPlacingBet} className="w-full h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:opacity-90 text-white shadow-lg shadow-orange-500/30">
                   {isPlacingBet ? 'Placing Bet...' : localBet ? `✓ ${formatCurrency(localBet.amount)} on ${localBet.choice}` : selectedChoice ? `Place Bet - ${formatCurrency(betAmount)}` : 'Select Big or Small'}
                 </Button>
               </CardContent>
@@ -275,7 +262,7 @@ export default function BigSmallGame() {
           )}
         </AnimatePresence>
 
-        <Card className="game-card">
+        <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
           <CardHeader className="pb-2"><CardTitle className="text-sm flex items-center gap-2"><History className="w-4 h-4" /> Recent Results ({selectedDuration} min)</CardTitle></CardHeader>
           <CardContent>
             <div className="flex gap-2 overflow-x-auto pb-2">
@@ -284,7 +271,7 @@ export default function BigSmallGame() {
                 const total = dice.reduce((a, b) => a + b, 0);
                 const size = total >= 11 ? 'big' : 'small';
                 return (
-                  <motion.div key={round.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className={`w-12 h-12 rounded-xl flex flex-col items-center justify-center flex-shrink-0 ${size === 'big' ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-gradient-to-br from-yellow-400 to-yellow-600'}`}>
+                  <motion.div key={round.id} initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }} className={`w-12 h-12 rounded-full flex flex-col items-center justify-center flex-shrink-0 shadow-lg ${size === 'big' ? 'bg-gradient-to-br from-orange-400 to-orange-600' : 'bg-gradient-to-br from-yellow-400 to-yellow-600'}`}>
                     <span className="text-sm font-bold text-white">{total}</span>
                   </motion.div>
                 );
@@ -296,13 +283,25 @@ export default function BigSmallGame() {
         </Card>
       </main>
 
-      <nav className="fixed bottom-0 left-0 right-0 glass border-t border-border">
+      <nav className="fixed bottom-0 left-0 right-0 bg-gradient-to-t from-[#0a0f2e] to-[#1a1f4e] border-t border-primary/20">
         <div className="container max-w-lg mx-auto px-4">
           <div className="flex items-center justify-around py-3">
-            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><Wallet className="w-5 h-5" /><span className="text-xs">Home</span></Link>
-            <Link to="/game/bigsmall" className="flex flex-col items-center gap-1 text-primary"><Gamepad2 className="w-5 h-5" /><span className="text-xs">Play</span></Link>
-            <Link to="/history" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><History className="w-5 h-5" /><span className="text-xs">History</span></Link>
-            <Link to="/referral" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground"><Users className="w-5 h-5" /><span className="text-xs">Referral</span></Link>
+            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <Home className="w-5 h-5" />
+              <span className="text-xs">Home</span>
+            </Link>
+            <Link to="/wallet?action=deposit" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowDownCircle className="w-5 h-5 text-game-green" />
+              <span className="text-xs">Deposit</span>
+            </Link>
+            <Link to="/wallet?action=withdraw" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <ArrowUpCircle className="w-5 h-5 text-game-red" />
+              <span className="text-xs">Withdraw</span>
+            </Link>
+            <Link to="/profile" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors">
+              <User className="w-5 h-5" />
+              <span className="text-xs">Profile</span>
+            </Link>
           </div>
         </div>
       </nav>
