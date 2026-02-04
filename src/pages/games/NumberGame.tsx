@@ -33,7 +33,7 @@ export default function NumberGame() {
 
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'number';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ 
+  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -183,8 +183,8 @@ export default function NumberGame() {
           disabled={!!localBet}
         />
 
-        {!currentRound ? (
-          <WaitingForRound gameName="Number Guess" />
+        {!currentRound || isTransitioning ? (
+          <WaitingForRound gameName="Number Guess" isTransitioning={isTransitioning} />
         ) : (
           <>
             <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">

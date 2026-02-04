@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -29,13 +29,15 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
   const [recentResults, setRecentResults] = useState<GameRound[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const { user } = useAuth();
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastRoundIdRef = useRef<string | null>(null);
+  const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Fetch current active or locked round for specific duration
   const fetchCurrentRound = useCallback(async () => {
     try {
-      // Get active round for this game type AND duration
       const { data: activeRound } = await supabase
         .from('game_rounds')
         .select('*')
@@ -47,14 +49,31 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
         .maybeSingle();
 
       if (activeRound) {
-        setCurrentRound(activeRound as GameRound);
+        // Only update if round actually changed
+        if (lastRoundIdRef.current !== activeRound.id) {
+          lastRoundIdRef.current = activeRound.id;
+          setIsTransitioning(false);
+          setCurrentRound(activeRound as GameRound);
+        } else {
+          // Same round, just update status if needed
+          setCurrentRound(prev => {
+            if (!prev) return activeRound as GameRound;
+            if (prev.status !== activeRound.status) {
+              return activeRound as GameRound;
+            }
+            return prev;
+          });
+        }
       } else {
-        setCurrentRound(null);
+        // No active round - only set to null if we had a round before
+        if (currentRound) {
+          setIsTransitioning(true);
+        }
       }
     } catch (error) {
       console.error('Error fetching current round:', error);
     }
-  }, [gameType, durationMinutes]);
+  }, [gameType, durationMinutes, currentRound]);
 
   // Fetch recent completed rounds for specific duration
   const fetchRecentResults = useCallback(async () => {
@@ -79,7 +98,7 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
     }
   }, [gameType, durationMinutes]);
 
-  // Timer countdown for current round - also triggers refetch when time runs out
+  // Timer countdown - optimized to reduce re-renders
   useEffect(() => {
     if (!currentRound || currentRound.status === 'completed') {
       setTimeLeft(0);
@@ -90,35 +109,50 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
       const endTime = new Date(currentRound.end_time).getTime();
       const now = Date.now();
       const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
-      setTimeLeft(remaining);
+      
+      setTimeLeft(prev => {
+        // Only update if value actually changed
+        if (prev !== remaining) return remaining;
+        return prev;
+      });
 
-      // When timer hits 0, start polling for the new round
+      // When timer hits 0, set transitioning and fetch new round
       if (remaining === 0) {
-        // Immediately fetch to check for round status change
-        fetchCurrentRound();
-        fetchRecentResults();
+        setIsTransitioning(true);
+        // Delay setting currentRound to null to prevent flicker
+        if (transitionTimeoutRef.current) {
+          clearTimeout(transitionTimeoutRef.current);
+        }
+        transitionTimeoutRef.current = setTimeout(() => {
+          fetchCurrentRound();
+          fetchRecentResults();
+        }, 500);
       }
     };
 
     updateTime();
     const interval = setInterval(updateTime, 1000);
 
-    return () => clearInterval(interval);
-  }, [currentRound, fetchCurrentRound, fetchRecentResults]);
+    return () => {
+      clearInterval(interval);
+      if (transitionTimeoutRef.current) {
+        clearTimeout(transitionTimeoutRef.current);
+      }
+    };
+  }, [currentRound?.id, currentRound?.end_time, currentRound?.status, fetchCurrentRound, fetchRecentResults]);
 
-  // Polling when no current round exists (waiting for new round)
+  // Polling when transitioning (waiting for new round)
   useEffect(() => {
-    // Clear any existing polling
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
       pollIntervalRef.current = null;
     }
 
-    // If no current round, poll every 2 seconds for a new one
-    if (!currentRound && !isLoading) {
+    // Poll when transitioning or no current round
+    if ((isTransitioning || !currentRound) && !isLoading) {
       pollIntervalRef.current = setInterval(() => {
         fetchCurrentRound();
-      }, 2000);
+      }, 1500);
     }
 
     return () => {
@@ -127,11 +161,12 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
         pollIntervalRef.current = null;
       }
     };
-  }, [currentRound, isLoading, fetchCurrentRound]);
+  }, [isTransitioning, currentRound, isLoading, fetchCurrentRound]);
 
-  // Subscribe to real-time updates for specific duration
+  // Subscribe to real-time updates
   useEffect(() => {
     setIsLoading(true);
+    lastRoundIdRef.current = null;
     fetchCurrentRound();
     fetchRecentResults();
 
@@ -148,15 +183,18 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
         (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const round = payload.new as GameRound;
-            // Only update if duration matches
             if (round.duration === durationMinutes) {
               if (round.status === 'betting' || round.status === 'locked') {
+                if (lastRoundIdRef.current !== round.id) {
+                  lastRoundIdRef.current = round.id;
+                  setIsTransitioning(false);
+                }
                 setCurrentRound(round);
               } else if (round.status === 'completed') {
-                setCurrentRound(null);
+                setIsTransitioning(true);
                 fetchRecentResults();
-                // Immediately look for the next round
-                fetchCurrentRound();
+                // Small delay before looking for new round
+                setTimeout(() => fetchCurrentRound(), 300);
               }
             }
           }
@@ -169,13 +207,18 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
     };
   }, [gameType, durationMinutes, fetchCurrentRound, fetchRecentResults]);
 
+  // Memoized return values
+  const isBettingOpen = useMemo(() => currentRound?.status === 'betting', [currentRound?.status]);
+  const isLocked = useMemo(() => currentRound?.status === 'locked', [currentRound?.status]);
+
   return {
     currentRound,
     recentResults,
     isLoading,
     timeLeft,
-    isBettingOpen: currentRound?.status === 'betting',
-    isLocked: currentRound?.status === 'locked',
+    isTransitioning,
+    isBettingOpen,
+    isLocked,
     refetch: fetchCurrentRound,
   };
 }

@@ -34,7 +34,7 @@ export default function ParityGame() {
 
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'parity';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ 
+  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -173,8 +173,8 @@ export default function ParityGame() {
           disabled={!!localBet}
         />
 
-        {!currentRound ? (
-          <WaitingForRound gameName="Fast Parity" />
+        {!currentRound || isTransitioning ? (
+          <WaitingForRound gameName="Fast Parity" isTransitioning={isTransitioning} />
         ) : (
           <>
             <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">

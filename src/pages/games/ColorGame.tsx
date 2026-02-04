@@ -36,7 +36,7 @@ export default function ColorGame() {
   
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'color';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ 
+  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -199,8 +199,8 @@ export default function ColorGame() {
         />
 
         {/* Waiting State or Timer */}
-        {!currentRound ? (
-          <WaitingForRound gameName="Color Prediction" />
+        {!currentRound || isTransitioning ? (
+          <WaitingForRound gameName="Color Prediction" isTransitioning={isTransitioning} />
         ) : (
           <>
             {/* Timer & Round Info */}
