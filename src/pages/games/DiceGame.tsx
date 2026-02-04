@@ -99,6 +99,8 @@ export default function DiceGame() {
     if (isNaN(result)) return;
     
     lastProcessedRoundIdRef.current = latestRound.id;
+    console.log(`[DiceGame] Processing round result: ${latestRound.id} (round #${latestRound.round_number})`);
+
     setLastResult(result);
     setShowResult(true);
 

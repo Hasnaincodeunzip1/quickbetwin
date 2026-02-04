@@ -90,6 +90,8 @@ export default function SpinGame() {
     if (latestRound.id === lastProcessedRoundIdRef.current) return;
     
     lastProcessedRoundIdRef.current = latestRound.id;
+    console.log(`[SpinGame] Processing round result: ${latestRound.id} (round #${latestRound.round_number})`);
+
     const resultStr = latestRound.result;
     const resultReels = resultStr.split(',') as SpinSymbol[];
     setReels(resultReels);

@@ -89,6 +89,8 @@ export default function NumberGame() {
     if (isNaN(result)) return;
     
     lastProcessedRoundIdRef.current = latestRound.id;
+    console.log(`[NumberGame] Processing round result: ${latestRound.id} (round #${latestRound.round_number})`);
+
     setLastResult(result);
     setShowResult(true);
 

@@ -96,6 +96,8 @@ export default function ColorGame() {
     if (result !== 'red' && result !== 'green' && result !== 'violet') return;
     
     lastProcessedRoundIdRef.current = latestRound.id;
+    console.log(`[ColorGame] Processing round result: ${latestRound.id} (round #${latestRound.round_number})`);
+
     setLastResult(result);
     setShowResult(true);
     
