@@ -43,7 +43,7 @@ export default function DiceGame() {
 
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'dice';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
+  const { currentRound, recentResults, isBettingOpen, isLocked } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -163,11 +163,6 @@ export default function DiceGame() {
 
   const canBet = Boolean(isBettingOpen && !localBet && currentRound);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0f2e] via-background to-background pb-24">
@@ -194,8 +189,8 @@ export default function DiceGame() {
           disabled={!!localBet}
         />
 
-        {!currentRound || isTransitioning ? (
-          <WaitingForRound gameName="Dice Roll" isTransitioning={isTransitioning} />
+        {!currentRound ? (
+          <WaitingForRound gameName="Dice Roll" />
         ) : (
           <>
             <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">
@@ -207,8 +202,8 @@ export default function DiceGame() {
                     <Sparkles className="w-3 h-3" /> 6x Payout
                   </span>
                 </div>
-                <div className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive animate-pulse' : 'text-primary'}`}>
-                  {formatTime(timeLeft)}
+                <div className="text-4xl font-bold text-primary">
+                  Round #{currentRound.round_number}
                 </div>
               </CardContent>
             </Card>

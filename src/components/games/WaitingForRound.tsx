@@ -5,10 +5,9 @@ import { Card, CardContent } from '@/components/ui/card';
 
 interface WaitingForRoundProps {
   gameName: string;
-  isTransitioning?: boolean;
 }
 
-export const WaitingForRound = memo(function WaitingForRound({ gameName, isTransitioning }: WaitingForRoundProps) {
+export const WaitingForRound = memo(function WaitingForRound({ gameName }: WaitingForRoundProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -26,14 +25,9 @@ export const WaitingForRound = memo(function WaitingForRound({ gameName, isTrans
           >
             <Clock className="w-6 h-6 text-primary" />
           </motion.div>
-          <h3 className="text-xl font-bold mb-2">
-            {isTransitioning ? 'Round Complete!' : 'Waiting for Next Round'}
-          </h3>
+          <h3 className="text-xl font-bold mb-2">Waiting for Next Round</h3>
           <p className="text-muted-foreground text-sm mb-4">
-            {isTransitioning 
-              ? 'New round starting shortly...'
-              : `The next ${gameName} round will start soon.`
-            }
+            The next {gameName} round will start soon. Refresh the page to check.
           </p>
           <div className="flex items-center justify-center gap-2 text-muted-foreground">
             <Loader2 className="w-4 h-4 animate-spin" />

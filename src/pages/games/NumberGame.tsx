@@ -33,7 +33,7 @@ export default function NumberGame() {
 
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'number';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
+  const { currentRound, recentResults, isBettingOpen, isLocked } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -153,11 +153,6 @@ export default function NumberGame() {
 
   const canBet = Boolean(isBettingOpen && !localBet && currentRound);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const numberColors = [
     'from-violet-400 to-violet-600',
@@ -197,8 +192,8 @@ export default function NumberGame() {
           disabled={!!localBet}
         />
 
-        {!currentRound || isTransitioning ? (
-          <WaitingForRound gameName="Number Guess" isTransitioning={isTransitioning} />
+        {!currentRound ? (
+          <WaitingForRound gameName="Number Guess" />
         ) : (
           <>
             <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">
@@ -210,8 +205,8 @@ export default function NumberGame() {
                     <Crown className="w-3 h-3" /> 10x Jackpot
                   </span>
                 </div>
-                <div className={`text-6xl font-bold font-mono ${timeLeft <= 10 ? 'text-destructive animate-pulse' : 'text-primary'}`}>
-                  {formatTime(timeLeft)}
+                <div className="text-4xl font-bold text-primary">
+                  Round #{currentRound.round_number}
                 </div>
                 <p className="text-sm text-muted-foreground mt-2">Pick 0-9, win 10x your bet!</p>
               </CardContent>
