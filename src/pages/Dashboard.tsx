@@ -9,6 +9,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Wallet, Sparkles, Flame, Zap, Star, Dice1, Target, RotateCcw } from 'lucide-react';
 import { BottomNav } from '@/components/BottomNav';
 
+// Import game banners
+import colorBanner from '@/assets/games/color-prediction-banner.jpg';
+import parityBanner from '@/assets/games/parity-banner.jpg';
+import bigsmallBanner from '@/assets/games/bigsmall-banner.jpg';
+import diceBanner from '@/assets/games/dice-banner.jpg';
+import numberBanner from '@/assets/games/number-banner.jpg';
+import spinBanner from '@/assets/games/spin-banner.jpg';
+
 // Lazy load non-critical components
 const WinLossPopups = lazy(() => import('@/components/dashboard/WinLossPopups').then(m => ({ default: m.WinLossPopups })));
 
@@ -16,48 +24,42 @@ const games = [
   { 
     name: 'Color Prediction', 
     path: '/game/color', 
-    gradient: 'from-rose-500 via-red-500 to-orange-500',
-    icon: '🎨',
+    image: colorBanner,
     description: 'Predict the winning color',
     hot: true
   },
   { 
     name: 'Fast Parity', 
     path: '/game/parity', 
-    gradient: 'from-blue-500 via-cyan-500 to-teal-500',
-    icon: '⚡',
+    image: parityBanner,
     description: 'Odd or Even - Quick wins',
     hot: false
   },
   { 
     name: 'Big / Small', 
     path: '/game/bigsmall', 
-    gradient: 'from-amber-500 via-orange-500 to-yellow-500',
-    icon: '🎲',
+    image: bigsmallBanner,
     description: 'Guess big or small',
     hot: true
   },
   { 
     name: 'Dice Roll', 
     path: '/game/dice', 
-    gradient: 'from-purple-500 via-violet-500 to-fuchsia-500',
-    icon: '🎯',
+    image: diceBanner,
     description: 'Roll and win big',
     hot: false
   },
   { 
     name: 'Number Guess', 
     path: '/game/number', 
-    gradient: 'from-emerald-500 via-green-500 to-lime-500',
-    icon: '🔢',
+    image: numberBanner,
     description: 'Pick your lucky number',
     hot: false
   },
   { 
     name: 'Lucky Spin', 
     path: '/game/spin', 
-    gradient: 'from-pink-500 via-rose-500 to-red-500',
-    icon: '🎰',
+    image: spinBanner,
     description: 'Spin to win prizes',
     hot: true
   },
@@ -154,26 +156,32 @@ export default function Dashboard() {
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate(game.path)}
-              className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${game.gradient} p-4 text-left shadow-lg hover:shadow-xl transition-shadow`}
+              className="relative overflow-hidden rounded-2xl text-left shadow-lg hover:shadow-xl transition-all group"
             >
-              {/* Hot badge */}
-              {game.hot && (
-                <div className="absolute top-2 right-2 bg-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <Flame className="w-3 h-3 text-yellow-300" />
-                  <span className="text-xs font-bold text-white">HOT</span>
+              {/* Game Banner Image */}
+              <div className="relative aspect-[16/10] overflow-hidden">
+                <img 
+                  src={game.image} 
+                  alt={game.name}
+                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                />
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                
+                {/* Hot badge */}
+                {game.hot && (
+                  <div className="absolute top-2 right-2 bg-game-red/90 backdrop-blur-sm px-2 py-0.5 rounded-full flex items-center gap-1 shadow-lg">
+                    <Flame className="w-3 h-3 text-yellow-300" />
+                    <span className="text-xs font-bold text-white">HOT</span>
+                  </div>
+                )}
+                
+                {/* Game info */}
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <h3 className="text-white font-bold text-sm leading-tight drop-shadow-lg">{game.name}</h3>
+                  <p className="text-white/80 text-xs mt-0.5">{game.description}</p>
                 </div>
-              )}
-              
-              {/* Game icon */}
-              <div className="text-4xl mb-3 drop-shadow-lg">{game.icon}</div>
-              
-              {/* Game info */}
-              <h3 className="text-white font-bold text-sm leading-tight mb-1">{game.name}</h3>
-              <p className="text-white/70 text-xs">{game.description}</p>
-              
-              {/* Decorative elements */}
-              <div className="absolute -right-4 -bottom-4 w-20 h-20 bg-white/10 rounded-full blur-2xl" />
-              <div className="absolute -left-4 -top-4 w-16 h-16 bg-white/5 rounded-full blur-xl" />
+              </div>
             </motion.button>
           ))}
         </motion.div>
