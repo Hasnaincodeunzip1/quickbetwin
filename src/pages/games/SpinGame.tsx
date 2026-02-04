@@ -43,7 +43,7 @@ export default function SpinGame() {
 
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'spin';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ 
+  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -190,8 +190,8 @@ export default function SpinGame() {
           disabled={hasBet}
         />
 
-        {!currentRound ? (
-          <WaitingForRound gameName="Lucky Spin" />
+        {!currentRound || isTransitioning ? (
+          <WaitingForRound gameName="Lucky Spin" isTransitioning={isTransitioning} />
         ) : (
           <>
             <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">

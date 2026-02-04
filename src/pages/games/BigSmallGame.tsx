@@ -41,7 +41,7 @@ export default function BigSmallGame() {
 
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'bigsmall';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked } = useGameRounds({ 
+  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -172,8 +172,8 @@ export default function BigSmallGame() {
           disabled={!!localBet}
         />
 
-        {!currentRound ? (
-          <WaitingForRound gameName="Big/Small" />
+        {!currentRound || isTransitioning ? (
+          <WaitingForRound gameName="Big/Small" isTransitioning={isTransitioning} />
         ) : (
           <>
             <Card className="game-card overflow-hidden border-0 bg-gradient-to-br from-secondary/80 to-secondary/40">
