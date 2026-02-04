@@ -90,6 +90,8 @@ export default function ParityGame() {
     if (result !== 'odd' && result !== 'even') return;
     
     lastProcessedRoundIdRef.current = latestRound.id;
+    console.log(`[ParityGame] Processing round result: ${latestRound.id} (round #${latestRound.round_number})`);
+
     setLastResult({ number: 0, parity: result });
     setShowResult(true);
 

@@ -99,6 +99,8 @@ export default function BigSmallGame() {
     const size: SizeChoice = total >= 11 ? 'big' : 'small';
     
     lastProcessedRoundIdRef.current = latestRound.id;
+    console.log(`[BigSmallGame] Processing round result: ${latestRound.id} (round #${latestRound.round_number})`);
+
     setLastResult({ dice, total, size });
     setShowResult(true);
 
