@@ -198,21 +198,13 @@ export default function ParityGame() {
                     {isLocked ? '🔒 Locked' : <><Zap className="w-3 h-3 inline" /> Open</>}
                   </span>
                 </div>
-                <motion.div
-                  key={timeLeft}
-                  initial={{ scale: 1 }}
-                  animate={{ scale: timeLeft <= 5 ? [1, 1.15, 1] : 1 }}
-                  className={`text-7xl font-bold font-mono ${
-                    timeLeft <= 5 ? 'text-destructive' : 'text-primary'
-                  }`}
-                >
+                <div className={`text-7xl font-bold font-mono ${timeLeft <= 5 ? 'text-destructive animate-pulse' : 'text-primary'}`}>
                   {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
-                </motion.div>
+                </div>
                 <div className="mt-3 h-2 bg-secondary rounded-full overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-500"
+                  <div 
+                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-500 transition-[width] duration-1000 ease-linear"
                     style={{ width: `${(timeLeft / (currentRound.duration * 60)) * 100}%` }}
-                    transition={{ duration: 0.3 }}
                   />
                 </div>
               </CardContent>
@@ -296,15 +288,21 @@ export default function ParityGame() {
               exit={{ opacity: 0, scale: 0.8 }}
               className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md"
             >
-              <motion.div initial={{ y: 50 }} animate={{ y: 0 }} className="text-center">
+              <motion.div
+                initial={{ y: 24, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                className="text-center"
+              >
                 <motion.div 
                   className={`w-40 h-40 rounded-3xl mx-auto mb-4 flex items-center justify-center shadow-2xl ${
                     lastResult.parity === 'even' 
                       ? 'bg-gradient-to-br from-blue-500 to-blue-600' 
                       : 'bg-gradient-to-br from-cyan-400 to-cyan-500'
                   }`}
-                  animate={{ rotateY: [0, 360] }}
-                  transition={{ duration: 0.6 }}
+                  initial={{ scale: 0.92 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 220, damping: 16 }}
                 >
                   <span className="text-4xl font-bold text-white capitalize">{lastResult.parity}</span>
                 </motion.div>
