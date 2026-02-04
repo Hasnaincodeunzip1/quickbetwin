@@ -37,8 +37,8 @@ export default function Wallet() {
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw' | 'history'>(
     (searchParams.get('action') as 'deposit' | 'withdraw') || 'deposit'
   );
-  const [depositMethod, setDepositMethod] = useState<'bank' | 'upi'>('bank');
-  const [withdrawMethod, setWithdrawMethod] = useState<'bank' | 'upi'>('bank');
+  const [depositMethod, setDepositMethod] = useState<'bank' | 'upi'>('upi');
+  const [withdrawMethod, setWithdrawMethod] = useState<'bank' | 'upi'>('upi');
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
   // Bank withdrawal fields
@@ -104,7 +104,7 @@ export default function Wallet() {
         upiId: depositUPIAccount.upi_id,
         payeeName: depositUPIAccount.holder_name,
         amount: amount,
-        transactionNote: `Deposit to GenXWIN`,
+        transactionNote: `Deposit to GenZWIN`,
         transactionRef: transactionRef,
       },
       () => {
@@ -250,63 +250,10 @@ export default function Wallet() {
             </TabsTrigger>
           </TabsList>
 
-{/* Deposit Tab */}
           <TabsContent value="deposit" className="mt-4 space-y-4">
-            {/* Deposit Method Selection */}
-            <div className="flex gap-2">
-              <Button
-                variant={depositMethod === 'bank' ? 'default' : 'outline'}
-                className="flex-1"
-                onClick={() => setDepositMethod('bank')}
-              >
-                <Landmark className="w-4 h-4 mr-2" />
-                Bank Transfer
-              </Button>
-              <Button
-                variant={depositMethod === 'upi' ? 'default' : 'outline'}
-                className="flex-1"
-                onClick={() => setDepositMethod('upi')}
-              >
-                <Smartphone className="w-4 h-4 mr-2" />
-                UPI
-              </Button>
-            </div>
-
-            {/* Bank Account Info */}
-            {depositMethod === 'bank' && depositBankAccount && (
-              <Card className="game-card border-primary/30 bg-primary/5">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-game-green animate-pulse" />
-                    Transfer to This Account
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Bank</span>
-                    <span className="font-medium">{depositBankAccount.bank_name}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Account Holder</span>
-                    <span className="font-medium">{depositBankAccount.account_holder_name}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Account Number</span>
-                    <span className="font-mono font-medium">{depositBankAccount.account_number}</span>
-                  </div>
-                  {depositBankAccount.ifsc_code && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">IFSC Code</span>
-                      <span className="font-mono font-medium">{depositBankAccount.ifsc_code}</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* UPI Account Info */}
-            {depositMethod === 'upi' && depositUPIAccount && (
-              <Card className="game-card border-primary/30 bg-primary/5">
+            {/* UPI Account Info - simplified, no bank option for users */}
+            {depositUPIAccount ? (
+              <Card className="game-card border-game-green/30 bg-game-green/5">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-game-green animate-pulse" />
@@ -355,17 +302,7 @@ export default function Wallet() {
                   )}
                 </CardContent>
               </Card>
-            )}
-
-            {/* No account available message */}
-            {depositMethod === 'bank' && !depositBankAccount && (
-              <Card className="game-card border-destructive/30 bg-destructive/5">
-                <CardContent className="pt-6 text-center">
-                  <p className="text-muted-foreground">No bank account available for deposits. Please contact support.</p>
-                </CardContent>
-              </Card>
-            )}
-            {depositMethod === 'upi' && !depositUPIAccount && (
+            ) : (
               <Card className="game-card border-destructive/30 bg-destructive/5">
                 <CardContent className="pt-6 text-center">
                   <p className="text-muted-foreground">No UPI account available for deposits. Please contact support.</p>
@@ -435,29 +372,12 @@ export default function Wallet() {
 
           {/* Withdraw Tab */}
           <TabsContent value="withdraw" className="mt-4 space-y-4">
-            {/* Withdrawal Method Selection */}
-            <div className="flex gap-2">
-              <Button
-                variant={withdrawMethod === 'bank' ? 'default' : 'outline'}
-                className="flex-1"
-                onClick={() => setWithdrawMethod('bank')}
-              >
-                <Landmark className="w-4 h-4 mr-2" />
-                Bank Account
-              </Button>
-              <Button
-                variant={withdrawMethod === 'upi' ? 'default' : 'outline'}
-                className="flex-1"
-                onClick={() => setWithdrawMethod('upi')}
-              >
-                <Smartphone className="w-4 h-4 mr-2" />
-                UPI
-              </Button>
-            </div>
-
             <Card className="game-card">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Withdraw Money</CardTitle>
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-accent" />
+                  Withdraw via UPI
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -487,71 +407,23 @@ export default function Wallet() {
                   ))}
                 </div>
 
-                {/* Bank Account Form */}
-                {withdrawMethod === 'bank' && (
-                  <div className="space-y-3 pt-2 border-t border-border">
-                    <p className="text-sm font-medium text-muted-foreground">Enter Your Bank Details</p>
-                    <div className="space-y-2">
-                      <Label>Bank Name</Label>
-                      <Input
-                        placeholder="e.g., HDFC Bank"
-                        value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
-                        className="bg-secondary"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Account Holder Name</Label>
-                      <Input
-                        placeholder="e.g., John Doe"
-                        value={accountHolderName}
-                        onChange={(e) => setAccountHolderName(e.target.value)}
-                        className="bg-secondary"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Account Number</Label>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        placeholder="e.g., 1234567890"
-                        value={accountNumber}
-                        onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, ''))}
-                        className="bg-secondary"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>IFSC Code</Label>
-                      <Input
-                        placeholder="e.g., HDFC0001234"
-                        value={ifscCode}
-                        onChange={(e) => setIfscCode(e.target.value.toUpperCase())}
-                        className="bg-secondary"
-                      />
-                    </div>
-                  </div>
-                )}
-
                 {/* UPI Form */}
-                {withdrawMethod === 'upi' && (
-                  <div className="space-y-3 pt-2 border-t border-border">
-                    <p className="text-sm font-medium text-muted-foreground">Enter Your UPI Details</p>
-                    <div className="space-y-2">
-                      <Label>UPI ID</Label>
-                      <Input
-                        placeholder="e.g., yourname@upi"
-                        value={withdrawUpiId}
-                        onChange={(e) => setWithdrawUpiId(e.target.value)}
-                        className="bg-secondary"
-                      />
-                    </div>
+                <div className="space-y-3 pt-2 border-t border-border">
+                  <p className="text-sm font-medium text-muted-foreground">Enter Your UPI ID</p>
+                  <div className="space-y-2">
+                    <Label>UPI ID</Label>
+                    <Input
+                      placeholder="e.g., yourname@upi"
+                      value={withdrawUpiId}
+                      onChange={(e) => setWithdrawUpiId(e.target.value)}
+                      className="bg-secondary"
+                    />
                   </div>
-                )}
+                </div>
 
                 <Button
                   onClick={handleWithdraw}
-                  disabled={loading || !withdrawAmount || (withdrawMethod === 'bank' ? (!bankName || !accountHolderName || !accountNumber || !ifscCode) : !withdrawUpiId)}
+                  disabled={loading || !withdrawAmount || !withdrawUpiId}
                   className="w-full h-12 bg-accent hover:bg-accent/90 text-accent-foreground"
                 >
                   {loading ? (

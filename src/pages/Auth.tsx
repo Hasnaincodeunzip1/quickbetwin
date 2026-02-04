@@ -105,7 +105,7 @@ export default function Auth() {
     if (result.success) {
       toast({ 
         title: "Account Created!", 
-        description: "Welcome to GenXWIN! You're now logged in." 
+        description: "Welcome to GenZWIN! You're now logged in." 
       });
       navigate('/dashboard');
     } else {
@@ -317,9 +317,13 @@ export default function Auth() {
       >
         {/* Logo */}
         <div className="text-center mb-8">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-game-green via-primary to-game-red flex items-center justify-center">
+            <span className="text-white font-bold text-2xl">GZ</span>
+          </div>
           <h1 className="text-4xl font-bold mb-2">
-            <span className="text-game-red">GenX</span>
-            <span className="text-game-green">WIN</span>
+            <span className="text-game-green">Gen</span>
+            <span className="text-primary">Z</span>
+            <span className="text-game-red">WIN</span>
           </h1>
           <p className="text-muted-foreground">Predict. Play. Prosper.</p>
         </div>
