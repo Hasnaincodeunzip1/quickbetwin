@@ -224,31 +224,25 @@ export default function ColorGame() {
                     {isLocked ? '🔒 Locked' : '🎲 Betting Open'}
                   </span>
                 </div>
-                <motion.div
-                  key={timeLeft}
-                  initial={{ scale: 1 }}
-                  animate={{ scale: timeLeft <= 10 ? [1, 1.1, 1] : 1 }}
-                  transition={{ duration: 0.5 }}
+                <div
                   className={`text-6xl font-bold font-mono ${
-                    timeLeft <= 10 ? 'text-destructive' : 'text-primary'
+                    timeLeft <= 10 ? 'text-destructive animate-pulse' : 'text-primary'
                   }`}
                 >
                   {formatTime(timeLeft)}
-                </motion.div>
+                </div>
                 {timeLeft <= 10 && timeLeft > 0 && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="mt-3"
                   >
-                    <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                      <motion.div 
-                        className="h-full bg-gradient-to-r from-destructive to-orange-500"
-                        initial={{ width: '100%' }}
-                        animate={{ width: '0%' }}
-                        transition={{ duration: timeLeft, ease: 'linear' }}
-                      />
-                    </div>
+                     <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                       <div
+                         className="h-full bg-gradient-to-r from-destructive to-orange-500 transition-[width] duration-1000 ease-linear"
+                         style={{ width: `${Math.max(0, Math.min(100, (timeLeft / 10) * 100))}%` }}
+                       />
+                     </div>
                     <p className="text-xs text-destructive mt-1 animate-pulse">Hurry! Place your bet!</p>
                   </motion.div>
                 )}
@@ -335,16 +329,17 @@ export default function ColorGame() {
               exit={{ opacity: 0, scale: 0.8 }}
               className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 backdrop-blur-md"
             >
-              <motion.div
-                initial={{ y: 50, rotateY: 0 }}
-                animate={{ y: 0, rotateY: 360 }}
-                transition={{ duration: 0.6 }}
-                className="text-center"
-              >
+               <motion.div
+                 initial={{ y: 24, opacity: 0 }}
+                 animate={{ y: 0, opacity: 1 }}
+                 transition={{ duration: 0.35, ease: 'easeOut' }}
+                 className="text-center"
+               >
                 <motion.div 
                   className={`w-36 h-36 rounded-full mx-auto mb-4 flex items-center justify-center ${colorConfig[lastResult].bg} ${colorConfig[lastResult].glow}`}
-                  animate={{ scale: [1, 1.1, 1] }}
-                  transition={{ repeat: Infinity, duration: 1 }}
+                   initial={{ scale: 0.92 }}
+                   animate={{ scale: 1 }}
+                   transition={{ type: 'spring', stiffness: 220, damping: 16 }}
                 >
                   <Trophy className="w-16 h-16 text-white" />
                 </motion.div>
