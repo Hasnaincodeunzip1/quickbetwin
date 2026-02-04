@@ -98,7 +98,7 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
     }
   }, [gameType, durationMinutes]);
 
-  // Timer countdown - optimized to reduce re-renders
+  // Timer countdown - uses ref to avoid re-renders, only updates state when needed for UI changes
   useEffect(() => {
     if (!currentRound || currentRound.status === 'completed') {
       setTimeLeft(0);
@@ -110,10 +110,10 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
       const now = Date.now();
       const remaining = Math.max(0, Math.floor((endTime - now) / 1000));
       
+      // Only update state when the value actually changes
       setTimeLeft(prev => {
-        // Only update if value actually changed
-        if (prev !== remaining) return remaining;
-        return prev;
+        if (prev === remaining) return prev;
+        return remaining;
       });
 
       // When timer hits 0, set transitioning and fetch new round

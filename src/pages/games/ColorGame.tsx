@@ -13,6 +13,7 @@ import { DurationSelector } from '@/components/games/DurationSelector';
 import { BetAmountInput } from '@/components/games/BetAmountInput';
 import { ColorBettingCards } from '@/components/games/ColorBettingCards';
 import { NumberBalls } from '@/components/games/NumberBalls';
+import { GameTimer } from '@/components/games/GameTimer';
 import { 
   Wallet, 
   Gamepad2, 
@@ -36,7 +37,7 @@ export default function ColorGame() {
   
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'color';
-  const { currentRound, recentResults, timeLeft, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
+  const { currentRound, recentResults, isBettingOpen, isLocked, isTransitioning } = useGameRounds({ 
     gameType, 
     durationMinutes: selectedDuration 
   });
@@ -149,11 +150,6 @@ export default function ColorGame() {
     return null;
   }
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
 
   const handlePlaceBet = async () => {
     if (!selectedColor || !isBettingOpen || localBet || isPlacingBet || !currentRound) return;
@@ -224,28 +220,10 @@ export default function ColorGame() {
                     {isLocked ? '🔒 Locked' : '🎲 Betting Open'}
                   </span>
                 </div>
-                <div
-                  className={`text-6xl font-bold font-mono ${
-                    timeLeft <= 10 ? 'text-destructive animate-pulse' : 'text-primary'
-                  }`}
-                >
-                  {formatTime(timeLeft)}
-                </div>
-                {timeLeft <= 10 && timeLeft > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="mt-3"
-                  >
-                     <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                       <div
-                         className="h-full bg-gradient-to-r from-destructive to-orange-500 transition-[width] duration-1000 ease-linear"
-                         style={{ width: `${Math.max(0, Math.min(100, (timeLeft / 10) * 100))}%` }}
-                       />
-                     </div>
-                    <p className="text-xs text-destructive mt-1 animate-pulse">Hurry! Place your bet!</p>
-                  </motion.div>
-                )}
+                <GameTimer 
+                  endTime={currentRound.end_time} 
+                  duration={currentRound.duration}
+                />
               </CardContent>
             </Card>
 
