@@ -235,6 +235,9 @@ Deno.serve(async (req) => {
 
             results[gameType].push(`${durationMinutes}min: Completed #${activeRound.round_number}`);
 
+            // 2-second gap before creating new round (allows clients to sync data)
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+
             // Create new round for this duration
             const { data: lastRound } = await supabase
               .from("game_rounds")
