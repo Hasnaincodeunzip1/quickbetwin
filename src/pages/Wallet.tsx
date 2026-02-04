@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
@@ -10,11 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { BottomNav } from '@/components/BottomNav';
 import { 
   Wallet as WalletIcon, 
-  Gamepad2, 
-  History, 
-  Users, 
   ArrowDownCircle,
   ArrowUpCircle,
   ArrowLeft,
@@ -22,9 +20,9 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  Landmark,
   Smartphone,
-  ExternalLink
+  ExternalLink,
+  History
 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -500,28 +498,7 @@ export default function Wallet() {
       </main>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-0 left-0 right-0 glass border-t border-border">
-        <div className="container max-w-lg mx-auto px-4">
-          <div className="flex items-center justify-around py-3">
-            <Link to="/dashboard" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground">
-              <WalletIcon className="w-5 h-5" />
-              <span className="text-xs">Home</span>
-            </Link>
-            <Link to="/game" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground">
-              <Gamepad2 className="w-5 h-5" />
-              <span className="text-xs">Play</span>
-            </Link>
-            <Link to="/history" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground">
-              <History className="w-5 h-5" />
-              <span className="text-xs">History</span>
-            </Link>
-            <Link to="/referral" className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground">
-              <Users className="w-5 h-5" />
-              <span className="text-xs">Referral</span>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <BottomNav />
     </div>
   );
 }

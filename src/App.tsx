@@ -22,7 +22,7 @@ const DiceGame = lazy(() => import("./pages/games/DiceGame"));
 const NumberGame = lazy(() => import("./pages/games/NumberGame"));
 const SpinGame = lazy(() => import("./pages/games/SpinGame"));
 const Wallet = lazy(() => import("./pages/Wallet"));
-const History = lazy(() => import("./pages/History"));
+const Profile = lazy(() => import("./pages/Profile"));
 const Referral = lazy(() => import("./pages/Referral"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const AdminLayout = lazy(() => import("./components/admin/AdminLayout").then(m => ({ default: m.AdminLayout })));
@@ -73,7 +73,7 @@ const App = () => (
                 <Route path="/game/spin" element={<SpinGame />} />
                 
                 <Route path="/wallet" element={<Wallet />} />
-                <Route path="/history" element={<History />} />
+                <Route path="/profile" element={<Profile />} />
                 <Route path="/referral" element={<Referral />} />
                 
                 {/* Admin Routes */}
