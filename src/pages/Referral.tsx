@@ -44,7 +44,9 @@ export default function Referral() {
   }, [isAuthenticated, authLoading, navigate]);
 
   const referralCode = profile?.referral_code || 'LOADING...';
-  const referralLink = `${window.location.origin}/ref/${referralCode}`;
+  // Use published domain for referral links so they work when shared
+  const publishedDomain = 'https://genzwin.lovable.app';
+  const referralLink = `${publishedDomain}/ref/${referralCode}`;
   
   const hasVip = currentLevel !== 'none';
   const referralBonus = currentTier?.referralBonus || 0;
