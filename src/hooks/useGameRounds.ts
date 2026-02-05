@@ -23,6 +23,13 @@ interface UseGameRoundsOptions {
   durationMinutes: DurationMinutes;
 }
 
+// Helper to get start of today in ISO format
+function getTodayStart(): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today.toISOString();
+}
+
 export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOptions) {
   const [currentRound, setCurrentRound] = useState<GameRound | null>(null);
   const [recentResults, setRecentResults] = useState<GameRound[]>([]);
@@ -47,9 +54,11 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
     }
   }, [gameType, durationMinutes]);
 
-  // Fetch recent completed rounds for specific duration
+  // Fetch recent completed rounds for specific duration (today only)
   const fetchRecentResults = useCallback(async () => {
     try {
+      const todayStart = getTodayStart();
+      
       const { data } = await supabase
         .from('game_rounds')
         .select('*')
@@ -57,6 +66,7 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
         .eq('duration', durationMinutes)
         .eq('status', 'completed')
         .not('result', 'is', null)
+        .gte('created_at', todayStart)
         .order('round_number', { ascending: false })
         .limit(10);
 

@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard";
 
 // Lazy load less critical routes
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const ReferralRedirect = lazy(() => import("./pages/ReferralRedirect"));
 const ColorGame = lazy(() => import("./pages/games/ColorGame"));
 const ParityGame = lazy(() => import("./pages/games/ParityGame"));
 const BigSmallGame = lazy(() => import("./pages/games/BigSmallGame"));
@@ -61,6 +62,7 @@ const App = () => (
                 <Route path="/" element={<Index />} />
                 <Route path="/auth" element={<Auth />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/ref/:code" element={<ReferralRedirect />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 
                 {/* Game Routes */}

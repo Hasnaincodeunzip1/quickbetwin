@@ -27,7 +27,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signup: (email: string, password: string, name?: string) => Promise<{ success: boolean; error?: string }>;
+  signup: (email: string, password: string, name?: string, referralCode?: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -210,8 +210,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const signup = async (email: string, password: string, name?: string): Promise<{ success: boolean; error?: string }> => {
+  const signup = async (email: string, password: string, name?: string, referralCode?: string): Promise<{ success: boolean; error?: string }> => {
     try {
+      // Get referral code from parameter or localStorage
+      const refCode = referralCode || localStorage.getItem('referral_code');
+      
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -219,6 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           emailRedirectTo: window.location.origin,
           data: {
             name: name || 'Player',
+            referred_by: refCode || null,
           },
         },
       });
@@ -227,6 +231,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: error.message };
       }
 
+      // Clear the stored referral code after successful signup
+      localStorage.removeItem('referral_code');
+      
       return { success: true };
     } catch (error) {
       return { success: false, error: 'An unexpected error occurred' };
