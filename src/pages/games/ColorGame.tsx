@@ -13,6 +13,7 @@ import { DurationSelector } from '@/components/games/DurationSelector';
 import { BetAmountInput } from '@/components/games/BetAmountInput';
 import { ColorBettingCards } from '@/components/games/ColorBettingCards';
 import { NumberBalls } from '@/components/games/NumberBalls';
+import { GameModeIndicator } from '@/components/games/GameModeIndicator';
 import { 
   Wallet, 
   Gamepad2, 
@@ -191,6 +192,7 @@ export default function ColorGame() {
             <Wallet className="w-4 h-4 text-primary" />
             <span className="font-semibold">{formatCurrency(balance)}</span>
           </div>
+          <GameModeIndicator />
         </div>
       </header>
 
