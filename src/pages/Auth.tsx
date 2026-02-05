@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
@@ -26,6 +26,11 @@ export default function Auth() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
+  
+  // Check for stored referral code
+  const storedReferralCode = useMemo(() => {
+    return localStorage.getItem('referral_code');
+  }, []);
 
   // Redirect if already authenticated
   useEffect(() => {
@@ -243,6 +248,15 @@ export default function Auth() {
           />
         </div>
       </div>
+          
+          {storedReferralCode && (
+            <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+              <p className="text-sm text-center">
+                <span className="text-muted-foreground">Referral code: </span>
+                <span className="font-mono font-bold text-primary">{storedReferralCode}</span>
+              </p>
+            </div>
+          )}
 
       <div className="space-y-2">
         <Label htmlFor="signup-email">Email</Label>
