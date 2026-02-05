@@ -85,10 +85,55 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
     setIsLoading(true);
     fetchCurrentRound();
     fetchRecentResults();
+
+    // Subscribe to realtime updates for game rounds
+    const channel = supabase
+      .channel(`game-rounds-${gameType}-${durationMinutes}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'game_rounds',
+          filter: `game_type=eq.${gameType}`,
+        },
+        (payload) => {
+          const round = payload.new as GameRound;
+          // Only process if duration matches
+          if (round && round.duration === durationMinutes) {
+            if (round.status === 'betting' || round.status === 'locked') {
+              setCurrentRound(round);
+            } else if (round.status === 'completed' && round.result) {
+              // Add to recent results and clear current round
+              setRecentResults((prev) => {
+                const exists = prev.some((r) => r.id === round.id);
+                if (exists) {
+                  return prev.map((r) => (r.id === round.id ? round : r));
+                }
+                return [round, ...prev].slice(0, 10);
+              });
+              // Clear current round if it was completed
+              setCurrentRound((prev) => (prev?.id === round.id ? null : prev));
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [gameType, durationMinutes, fetchCurrentRound, fetchRecentResults]);
 
   // Memoized return values
-  const isBettingOpen = useMemo(() => currentRound?.status === 'betting', [currentRound?.status]);
+  const isBettingOpen = useMemo(() => {
+    if (!currentRound || currentRound.status !== 'betting') return false;
+    // Also check if end_time hasn't passed
+    const endTime = new Date(currentRound.end_time).getTime();
+    const now = Date.now();
+    return now < endTime;
+  }, [currentRound]);
+  
   const isLocked = useMemo(() => currentRound?.status === 'locked', [currentRound?.status]);
 
   return {
