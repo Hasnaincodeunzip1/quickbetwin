@@ -44,7 +44,7 @@ export default function Referral() {
   }, [isAuthenticated, authLoading, navigate]);
 
   const referralCode = profile?.referral_code || 'LOADING...';
-  const referralLink = `https://genzwin.app/ref/${referralCode}`;
+  const referralLink = `${window.location.origin}/ref/${referralCode}`;
   
   const hasVip = currentLevel !== 'none';
   const referralBonus = currentTier?.referralBonus || 0;
