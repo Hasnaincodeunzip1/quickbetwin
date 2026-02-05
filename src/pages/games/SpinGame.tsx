@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { WaitingForRound } from '@/components/games/WaitingForRound';
 import { DurationSelector } from '@/components/games/DurationSelector';
 import { BetAmountInput } from '@/components/games/BetAmountInput';
+import { GameModeIndicator } from '@/components/games/GameModeIndicator';
 import { 
   Wallet, 
   History, 
@@ -186,6 +187,7 @@ export default function SpinGame() {
             <Wallet className="w-4 h-4 text-primary" />
             <span className="font-semibold">{formatCurrency(balance)}</span>
           </div>
+          <GameModeIndicator />
         </div>
       </header>
 
