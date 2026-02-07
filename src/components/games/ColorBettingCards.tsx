@@ -1,3 +1,4 @@
+import { useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 
 type GameColor = 'red' | 'green' | 'violet';
@@ -37,6 +38,20 @@ export function ColorBettingCards({
   localBets = []
 }: ColorBettingCardsProps) {
   const colors: GameColor[] = ['red', 'green', 'violet'];
+  
+  // Debounce to prevent double-firing from touch + click
+  const lastFireRef = useRef(0);
+  
+  const handleSelect = useCallback((color: GameColor) => {
+    if (disabled) return;
+    
+    const now = Date.now();
+    if (now - lastFireRef.current < 300) return;
+    lastFireRef.current = now;
+    
+    console.log('[ColorBettingCards] Selected:', color);
+    onSelect(color);
+  }, [disabled, onSelect]);
 
   return (
     <div className="grid grid-cols-3 gap-3">
@@ -56,9 +71,12 @@ export function ColorBettingCards({
             transition={{ delay: index * 0.1 }}
             whileHover={{ scale: disabled ? 1 : 1.05, y: disabled ? 0 : -4 }}
             whileTap={{ scale: disabled ? 1 : 0.95 }}
-            onClick={() => !disabled && onSelect(color)}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              handleSelect(color);
+            }}
             disabled={disabled}
-            className={`relative h-28 rounded-2xl overflow-hidden
+            className={`relative h-28 rounded-2xl overflow-hidden touch-manipulation
               bg-gradient-to-br ${config.gradient}
               ${isSelected ? `ring-4 ring-white shadow-2xl ${config.glow} scale-105` : 'shadow-lg'}
               ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:shadow-xl'}
