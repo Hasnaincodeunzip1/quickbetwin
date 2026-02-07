@@ -1,4 +1,3 @@
-import { motion } from 'framer-motion';
 import { Clock } from 'lucide-react';
 import { DurationMinutes } from '@/hooks/useGameRounds';
 
@@ -19,12 +18,6 @@ export function DurationSelector({
   onDurationChange, 
   disabled = false 
 }: DurationSelectorProps) {
-  const handleClick = (duration: DurationMinutes) => {
-    if (!disabled && duration !== selectedDuration) {
-      onDurationChange(duration);
-    }
-  };
-
   return (
     <div className="flex items-center justify-center gap-2 mb-4">
       <Clock className="w-4 h-4 text-muted-foreground" />
@@ -33,7 +26,13 @@ export function DurationSelector({
           <button
             key={duration.value}
             type="button"
-            onClick={() => handleClick(duration.value)}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!disabled && duration.value !== selectedDuration) {
+                onDurationChange(duration.value);
+              }
+            }}
             disabled={disabled}
             className={`relative px-4 py-2 rounded-full text-xs font-medium transition-all ${
               selectedDuration === duration.value
