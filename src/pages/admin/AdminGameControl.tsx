@@ -21,14 +21,6 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -36,7 +28,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatCurrency } from "@/lib/formatters";
-import { useAdminGameRounds, GameType } from "@/hooks/useAdminGameRounds";
+import { useAdminGameRounds, GameType, DurationMinutes } from "@/hooks/useAdminGameRounds";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
@@ -83,10 +75,12 @@ const MULTIPLIERS: Record<GameType, Record<string, number>> = {
   spin: { red: 2, blue: 2, green: 2, yellow: 2, purple: 2, orange: 2 },
 };
 
-function GameControlPanel({ gameType }: { gameType: GameType }) {
+const DURATIONS: DurationMinutes[] = [1, 3, 5];
+
+// Individual duration control panel
+function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameType; durationMinutes: DurationMinutes }) {
   const {
     activeRound,
-    recentRounds,
     betStats,
     isLoading,
     isCreating,
@@ -95,17 +89,11 @@ function GameControlPanel({ gameType }: { gameType: GameType }) {
     setResult,
     cancelRound,
     refreshData
-  } = useAdminGameRounds(gameType);
+  } = useAdminGameRounds({ gameType, durationMinutes });
 
-  const [selectedDuration, setSelectedDuration] = useState<string>("1");
   const [selectedResult, setSelectedResult] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refreshData();
-    setIsRefreshing(false);
-  };
+  const [timeLeft, setTimeLeft] = useState(0);
 
   const gameOptions = GAME_OPTIONS[gameType];
   const multipliers = MULTIPLIERS[gameType];
@@ -134,12 +122,23 @@ function GameControlPanel({ gameType }: { gameType: GameType }) {
     return totalAmount - calculatePayout(choice);
   };
 
-  const getTimeLeft = () => {
-    if (!activeRound) return 0;
-    const endTime = new Date(activeRound.end_time).getTime();
-    const now = Date.now();
-    return Math.max(0, Math.floor((endTime - now) / 1000));
-  };
+  // Live timer update
+  useEffect(() => {
+    if (!activeRound) {
+      setTimeLeft(0);
+      return;
+    }
+
+    const updateTimer = () => {
+      const endTime = new Date(activeRound.end_time).getTime();
+      const now = Date.now();
+      setTimeLeft(Math.max(0, Math.floor((endTime - now) / 1000)));
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [activeRound]);
 
   const formatTimeDisplay = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -147,8 +146,10 @@ function GameControlPanel({ gameType }: { gameType: GameType }) {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleCreateRound = () => {
-    createRound(parseInt(selectedDuration));
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshData();
+    setIsRefreshing(false);
   };
 
   const handleSetResult = async () => {
@@ -176,258 +177,165 @@ function GameControlPanel({ gameType }: { gameType: GameType }) {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center py-6">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Create Round / Active Round */}
-      {!activeRound ? (
-        <Card className="game-card border-dashed border-2 border-primary/30">
-          <CardContent className="py-8">
-            <div className="text-center space-y-4">
-              <div className="w-16 h-16 mx-auto rounded-full bg-primary/10 flex items-center justify-center">
-                <Play className="w-8 h-8 text-primary" />
-              </div>
-              <div>
-                <h3 className="text-lg font-semibold">No Active Round</h3>
-                <p className="text-sm text-muted-foreground">Create a new round to start accepting bets</p>
-              </div>
-              <div className="flex items-center justify-center gap-4">
-                <Select value={selectedDuration} onValueChange={setSelectedDuration}>
-                  <SelectTrigger className="w-32">
-                    <SelectValue placeholder="Duration" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1">1 Minute</SelectItem>
-                    <SelectItem value="3">3 Minutes</SelectItem>
-                    <SelectItem value="5">5 Minutes</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button onClick={handleCreateRound} disabled={isCreating} className="gap-2">
-                  {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
-                  Start Round
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="game-card border-primary/50">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Gamepad2 className="w-5 h-5 text-primary" />
-                Round #{activeRound.round_number}
-              </CardTitle>
-              <div className="flex items-center gap-2">
-                <Badge 
-                  variant={activeRound.status === 'betting' ? 'default' : 'secondary'}
-                  className={activeRound.status === 'betting' ? 'bg-game-green text-white animate-pulse' : 'bg-yellow-500 text-black'}
-                >
-                  {activeRound.status === 'betting' ? 'Betting Open' : 'Betting Locked'}
-                </Badge>
-                <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
-                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
+    <Card className={`border ${activeRound ? 'border-primary/50' : 'border-dashed border-muted-foreground/30'}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Clock className="w-4 h-4" />
+            {durationMinutes} Minute
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {activeRound && (
+              <Badge 
+                variant={activeRound.status === 'betting' ? 'default' : 'secondary'}
+                className={activeRound.status === 'betting' ? 'bg-green-500 text-white' : 'bg-yellow-500 text-black'}
+              >
+                {activeRound.status === 'betting' ? 'Betting' : 'Locked'}
+              </Badge>
+            )}
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleRefresh} disabled={isRefreshing}>
+              <RefreshCw className={`w-3 h-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {!activeRound ? (
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground mb-3">No active round</p>
+            <Button onClick={createRound} disabled={isCreating} size="sm" className="gap-2">
+              {isCreating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
+              Start {durationMinutes} Min Round
+            </Button>
+          </div>
+        ) : (
+          <>
             {/* Round Info */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="p-4 bg-secondary rounded-lg text-center">
-                <p className="text-sm text-muted-foreground">Duration</p>
-                <p className="text-xl font-bold">{activeRound.duration} min</p>
+            <div className="grid grid-cols-3 gap-2 text-center text-sm">
+              <div className="p-2 bg-secondary rounded">
+                <p className="text-muted-foreground text-xs">Round</p>
+                <p className="font-bold">#{activeRound.round_number}</p>
               </div>
-              <div className="p-4 bg-secondary rounded-lg text-center">
-                <div className="flex items-center justify-center gap-2 text-muted-foreground mb-1">
-                  <Clock className="w-4 h-4" />
-                  <span className="text-sm">Time Left</span>
-                </div>
-                <p className={`text-2xl font-bold ${getTimeLeft() <= 10 ? 'text-game-red' : ''}`}>
-                  {formatTimeDisplay(getTimeLeft())}
+              <div className="p-2 bg-secondary rounded">
+                <p className="text-muted-foreground text-xs">Time</p>
+                <p className={`font-bold ${timeLeft <= 10 ? 'text-red-500' : ''}`}>
+                  {formatTimeDisplay(timeLeft)}
                 </p>
               </div>
-              <div className="p-4 bg-secondary rounded-lg text-center">
-                <div className="flex items-center justify-center gap-2 text-muted-foreground mb-1">
-                  <Users className="w-4 h-4" />
-                  <span className="text-sm">Total Bets</span>
-                </div>
-                <p className="text-xl font-bold">{totalBets}</p>
-              </div>
-              <div className="p-4 bg-secondary rounded-lg text-center">
-                <div className="flex items-center justify-center gap-2 text-muted-foreground mb-1">
-                  <TrendingUp className="w-4 h-4" />
-                  <span className="text-sm">Total Amount</span>
-                </div>
-                <p className="text-xl font-bold text-primary">{formatCurrency(totalAmount)}</p>
+              <div className="p-2 bg-secondary rounded">
+                <p className="text-muted-foreground text-xs">Bets</p>
+                <p className="font-bold">{totalBets} ({formatCurrency(totalAmount)})</p>
               </div>
             </div>
 
-            {/* Bet Distribution */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-              {gameOptions.map((option) => {
+            {/* Bet Options - Compact Grid */}
+            <div className="grid grid-cols-3 gap-2">
+              {gameOptions.slice(0, 6).map((option) => {
                 const betCount = getBetCount(option);
-                const betAmount = getBetAmount(option);
-                const payout = calculatePayout(option);
-                // Only show profit if there are any bets
                 const profit = totalBets > 0 ? calculateProfit(option) : 0;
                 const isSelected = selectedResult === option;
                 
                 return (
                   <div 
                     key={option}
-                    className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                    className={`p-2 rounded border cursor-pointer transition-all text-xs ${
                       isSelected 
-                        ? 'border-primary shadow-lg ring-2 ring-primary/50' 
+                        ? 'border-primary ring-2 ring-primary/50' 
                         : 'border-border hover:border-muted-foreground'
                     }`}
                     onClick={() => setSelectedResult(option)}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-4 h-4 rounded ${getOptionColor(option)}`} />
-                        <span className="font-semibold capitalize text-sm">{option}</span>
-                      </div>
-                      {isSelected && <CheckCircle2 className="w-4 h-4 text-primary" />}
+                    <div className="flex items-center gap-1 mb-1">
+                      <div className={`w-3 h-3 rounded ${getOptionColor(option)}`} />
+                      <span className="font-medium capitalize">{option}</span>
+                      {isSelected && <CheckCircle2 className="w-3 h-3 text-primary ml-auto" />}
                     </div>
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Bets</span>
-                        <span>{betCount}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Amount</span>
-                        <span>{formatCurrency(betAmount)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Payout ({multipliers[option]}x)</span>
-                        <span className="text-game-red">{formatCurrency(payout)}</span>
-                      </div>
-                      <div className="flex justify-between pt-1 border-t border-border">
-                        <span className="text-muted-foreground">Profit</span>
-                        <span className={profit > 0 ? 'text-game-green font-bold' : profit < 0 ? 'text-game-red font-bold' : 'text-muted-foreground'}>
-                          {totalBets > 0 ? (profit >= 0 ? '+' : '') + formatCurrency(profit) : '—'}
-                        </span>
-                      </div>
+                    <div className="text-muted-foreground">
+                      {betCount} bets • {totalBets > 0 ? (profit >= 0 ? '+' : '') + formatCurrency(profit) : '—'}
                     </div>
                   </div>
                 );
               })}
             </div>
+            
+            {/* Show remaining options if more than 6 */}
+            {gameOptions.length > 6 && (
+              <div className="grid grid-cols-4 gap-1">
+                {gameOptions.slice(6).map((option) => {
+                  const isSelected = selectedResult === option;
+                  return (
+                    <div 
+                      key={option}
+                      className={`p-1.5 rounded border cursor-pointer text-xs text-center ${
+                        isSelected ? 'border-primary bg-primary/10' : 'border-border'
+                      }`}
+                      onClick={() => setSelectedResult(option)}
+                    >
+                      <span className="capitalize">{option}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Actions */}
-            <div className="flex flex-wrap items-center gap-3 p-4 bg-secondary/50 rounded-lg border border-border">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-yellow-500" />
-                  <div>
-                    <p className="font-medium text-sm">
-                      {selectedResult 
-                        ? `Selected: ${selectedResult.toUpperCase()} (Profit: ${formatCurrency(calculateProfit(selectedResult))})` 
-                        : 'Click an option above to select the result'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {activeRound.status === 'betting' && (
-                  <Button 
-                    variant="outline" 
-                    onClick={lockRound}
-                    className="gap-2"
-                  >
-                    <Lock className="w-4 h-4" />
-                    Lock Betting
-                  </Button>
-                )}
-                <Button 
-                  variant="outline" 
-                  onClick={cancelRound}
-                  className="gap-2 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                >
-                  <XCircle className="w-4 h-4" />
-                  Cancel
+            <div className="flex gap-2">
+              {activeRound.status === 'betting' && (
+                <Button variant="outline" size="sm" onClick={lockRound} className="flex-1 gap-1">
+                  <Lock className="w-3 h-3" />
+                  Lock
                 </Button>
-                <Button 
-                  onClick={handleSetResult}
-                  disabled={!selectedResult || activeRound.status !== 'locked'}
-                  className="gap-2"
-                  title={activeRound.status !== 'locked' ? 'Lock betting first before setting result' : ''}
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Set Result
-                </Button>
-              </div>
+              )}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={cancelRound}
+                className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                <XCircle className="w-3 h-3" />
+              </Button>
+              <Button 
+                size="sm"
+                onClick={handleSetResult}
+                disabled={!selectedResult || activeRound.status !== 'locked'}
+                className="flex-1 gap-1"
+              >
+                <CheckCircle2 className="w-3 h-3" />
+                Set Result
+              </Button>
             </div>
             {activeRound.status === 'betting' && (
-              <p className="text-xs text-muted-foreground mt-2 text-center">
-                ⚠️ Lock betting before setting the result
+              <p className="text-xs text-muted-foreground text-center">
+                Lock betting before setting result
               </p>
             )}
-          </CardContent>
-        </Card>
-      )}
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
-      {/* Recent Results */}
-      <Card className="game-card">
-        <CardHeader>
-          <CardTitle className="text-lg">Recent Rounds</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {recentRounds.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Round</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Result</TableHead>
-                  <TableHead>Bets</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Duration</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentRounds.map((round) => (
-                  <TableRow key={round.id}>
-                    <TableCell className="font-medium">#{round.round_number}</TableCell>
-                    <TableCell>
-                      <Badge variant={
-                        round.status === 'completed' ? 'default' : 
-                        round.status === 'cancelled' ? 'destructive' : 
-                        'secondary'
-                      }>
-                        {round.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {round.result ? (
-                        <div className="flex items-center gap-2">
-                          <div className={`w-4 h-4 rounded ${getOptionColor(round.result)}`} />
-                          <span className="capitalize">{round.result}</span>
-                        </div>
-                      ) : '-'}
-                    </TableCell>
-                    <TableCell>{round.total_bets || 0}</TableCell>
-                    <TableCell className="font-medium text-primary">
-                      {formatCurrency(round.total_amount || 0)}
-                    </TableCell>
-                    <TableCell>{round.duration} min</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <div className="text-center py-8 text-muted-foreground">
-              No rounds yet. Create your first round above!
-            </div>
-          )}
-        </CardContent>
-      </Card>
+// Game control panel showing all 3 durations
+function GameControlPanel({ gameType }: { gameType: GameType }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {DURATIONS.map((duration) => (
+          <DurationControlPanel 
+            key={duration} 
+            gameType={gameType} 
+            durationMinutes={duration} 
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -528,11 +436,11 @@ export default function AdminGameControl() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Game Control</h1>
-        <p className="text-muted-foreground">Create rounds, set results, and manage betting periods</p>
+        <p className="text-muted-foreground">Manage all game durations simultaneously</p>
       </div>
 
       {/* Auto Controller Toggle */}
-      <Card className={`game-card border-2 transition-colors ${autoControllerEnabled ? 'border-green-500/50 bg-green-500/5' : 'border-muted'}`}>
+      <Card className={`border-2 transition-colors ${autoControllerEnabled ? 'border-green-500/50 bg-green-500/5' : 'border-muted'}`}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -578,7 +486,7 @@ export default function AdminGameControl() {
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
-                <span>All 6 game types</span>
+                <span>All 6 games × 3 durations</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
@@ -594,7 +502,7 @@ export default function AdminGameControl() {
             <div className="pt-4 border-t border-border">
               <div className="flex items-center gap-2 mb-3">
                 <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium">Round Durations</span>
+                <span className="text-sm font-medium">Default Round Durations</span>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
                 {GAME_TYPES.map((game) => (
@@ -626,32 +534,45 @@ export default function AdminGameControl() {
         )}
       </Card>
 
-      <Tabs value={selectedGame} onValueChange={(v) => setSelectedGame(v as GameType)}>
-        <TabsList className="grid grid-cols-3 lg:grid-cols-6 h-auto gap-1">
-          {GAME_TYPES.map((game) => (
-            <TabsTrigger 
-              key={game.id} 
-              value={game.id}
-              className="flex items-center gap-1 text-xs py-2"
-            >
-              <span>{game.icon}</span>
-              <span className="hidden sm:inline">{game.name}</span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      {/* Manual Control - Only show when auto is disabled */}
+      {!autoControllerEnabled && (
+        <Tabs value={selectedGame} onValueChange={(v) => setSelectedGame(v as GameType)}>
+          <TabsList className="grid grid-cols-3 lg:grid-cols-6 h-auto gap-1">
+            {GAME_TYPES.map((game) => (
+              <TabsTrigger 
+                key={game.id} 
+                value={game.id}
+                className="flex items-center gap-1 text-xs py-2"
+              >
+                <span>{game.icon}</span>
+                <span className="hidden sm:inline">{game.name}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
 
-        {GAME_TYPES.map((game) => (
-          <TabsContent key={game.id} value={game.id}>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-            >
-              <GameControlPanel gameType={game.id} />
-            </motion.div>
-          </TabsContent>
-        ))}
-      </Tabs>
+          {GAME_TYPES.map((game) => (
+            <TabsContent key={game.id} value={game.id}>
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <GameControlPanel gameType={game.id} />
+              </motion.div>
+            </TabsContent>
+          ))}
+        </Tabs>
+      )}
+
+      {autoControllerEnabled && (
+        <Card className="border-dashed">
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <Bot className="w-12 h-12 mx-auto mb-4 opacity-50" />
+            <p className="text-lg font-medium">Auto Controller is Active</p>
+            <p className="text-sm">Disable auto mode above to manually control game rounds</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
