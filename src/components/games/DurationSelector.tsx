@@ -1,3 +1,4 @@
+import { useCallback, useRef } from 'react';
 import { Clock } from 'lucide-react';
 import { DurationMinutes } from '@/hooks/useGameRounds';
 
@@ -13,37 +14,64 @@ const DURATIONS: { value: DurationMinutes; label: string }[] = [
   { value: 5, label: '5 Min' },
 ];
 
-export function DurationSelector({ 
-  selectedDuration, 
-  onDurationChange, 
-  disabled = false 
+export function DurationSelector({
+  selectedDuration,
+  onDurationChange,
+  disabled = false,
 }: DurationSelectorProps) {
-  const handleClick = (duration: DurationMinutes) => {
-    console.log('[DurationSelector] Clicked:', duration, 'current:', selectedDuration, 'disabled:', disabled);
-    if (!disabled) {
+  // On some mobile webviews, click can be flaky; pointer/touch handlers are more reliable.
+  // Also guard against double-firing (touchend + click) on certain browsers.
+  const lastFireRef = useRef(0);
+
+  const fire = useCallback(
+    (duration: DurationMinutes) => {
+      if (disabled) return;
+
+      const now = Date.now();
+      if (now - lastFireRef.current < 250) return;
+      lastFireRef.current = now;
+
       onDurationChange(duration);
-    }
-  };
+    },
+    [disabled, onDurationChange]
+  );
 
   return (
     <div className="flex items-center justify-center gap-2 mb-4">
       <Clock className="w-4 h-4 text-muted-foreground" />
       <div className="flex bg-secondary rounded-full p-1 gap-1">
-        {DURATIONS.map((duration) => (
-          <button
-            key={duration.value}
-            type="button"
-            onClick={() => handleClick(duration.value)}
-            disabled={disabled}
-            className={`relative px-4 py-2 rounded-full text-xs font-medium transition-all cursor-pointer ${
-              selectedDuration === duration.value
-                ? 'bg-primary text-primary-foreground'
-                : 'text-muted-foreground hover:text-foreground hover:bg-secondary-foreground/10'
-            } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
-          >
-            {duration.label}
-          </button>
-        ))}
+        {DURATIONS.map((duration) => {
+          const isSelected = selectedDuration === duration.value;
+
+          return (
+            <button
+              key={duration.value}
+              type="button"
+              disabled={disabled}
+              aria-pressed={isSelected}
+              onPointerUp={(e) => {
+                e.preventDefault();
+                fire(duration.value);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                fire(duration.value);
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                fire(duration.value);
+              }}
+              style={{ touchAction: 'manipulation' }}
+              className={`relative px-4 py-2 rounded-full text-xs font-medium transition-all select-none ${
+                isSelected
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary-foreground/10'
+              } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+            >
+              {duration.label}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
