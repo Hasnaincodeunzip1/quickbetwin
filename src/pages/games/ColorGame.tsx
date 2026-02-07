@@ -12,7 +12,6 @@ import { WaitingForRound } from '@/components/games/WaitingForRound';
 import { DurationSelector } from '@/components/games/DurationSelector';
 import { BetAmountInput } from '@/components/games/BetAmountInput';
 import { ColorBettingCards } from '@/components/games/ColorBettingCards';
-import { NumberBalls } from '@/components/games/NumberBalls';
 import { GameModeIndicator } from '@/components/games/GameModeIndicator';
 import { 
   Wallet, 
@@ -251,26 +250,6 @@ export default function ColorGame() {
               </CardContent>
             </Card>
 
-            {/* Number Balls Selection */}
-            <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <span className="text-primary">🎱</span>
-                  Pick Your Lucky Number (10x)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <NumberBalls
-                  selectedNumber={null}
-                  onSelect={() => {}}
-                  disabled={true}
-                  gameType="number"
-                />
-                <p className="text-xs text-muted-foreground text-center mt-3">
-                  Numbers available in Number Game
-                </p>
-              </CardContent>
-            </Card>
 
             {/* Bet Amount - New Component with Manual Input */}
             <Card className="game-card border-0 bg-gradient-to-br from-secondary/60 to-secondary/30">
