@@ -194,8 +194,12 @@ export default function SpinGame() {
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
         <DurationSelector 
           selectedDuration={selectedDuration}
-          onDurationChange={setSelectedDuration}
-          disabled={hasBet}
+          onDurationChange={(dur) => {
+            setSelectedDuration(dur);
+            setHasBet(false);
+            clearCurrentBet();
+          }}
+          disabled={false}
         />
 
         {!currentRound ? (
