@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 export type GameType = 'color' | 'parity' | 'bigsmall' | 'dice' | 'number' | 'spin';
+export type DurationMinutes = 1 | 3 | 5;
 
 interface GameRound {
   id: string;
@@ -24,7 +25,12 @@ interface BetStats {
   amount: number;
 }
 
-export function useAdminGameRounds(gameType: GameType) {
+interface UseAdminGameRoundsOptions {
+  gameType: GameType;
+  durationMinutes: DurationMinutes;
+}
+
+export function useAdminGameRounds({ gameType, durationMinutes }: UseAdminGameRoundsOptions) {
   const [activeRound, setActiveRound] = useState<GameRound | null>(null);
   const [recentRounds, setRecentRounds] = useState<GameRound[]>([]);
   const [betStats, setBetStats] = useState<BetStats[]>([]);
@@ -36,6 +42,7 @@ export function useAdminGameRounds(gameType: GameType) {
       .from('game_rounds')
       .select('*')
       .eq('game_type', gameType)
+      .eq('duration', durationMinutes)
       .in('status', ['betting', 'locked'])
       .order('created_at', { ascending: false })
       .limit(1)
@@ -76,15 +83,16 @@ export function useAdminGameRounds(gameType: GameType) {
     } else {
       setBetStats([]);
     }
-  }, [gameType]);
+  }, [gameType, durationMinutes]);
 
   const fetchRecentRounds = useCallback(async () => {
     const { data, error } = await supabase
       .from('game_rounds')
       .select('*')
       .eq('game_type', gameType)
+      .eq('duration', durationMinutes)
       .order('created_at', { ascending: false })
-      .limit(20);
+      .limit(10);
 
     if (error) {
       console.error('Error fetching recent rounds:', error);
@@ -92,12 +100,12 @@ export function useAdminGameRounds(gameType: GameType) {
     }
 
     setRecentRounds(data || []);
-  }, [gameType]);
+  }, [gameType, durationMinutes]);
 
-  const createRound = async (duration: number) => {
+  const createRound = async () => {
     setIsCreating(true);
     try {
-      // Get the next round number
+      // Get the next round number for this game type (shared across durations)
       const { data: lastRound } = await supabase
         .from('game_rounds')
         .select('round_number')
@@ -108,14 +116,14 @@ export function useAdminGameRounds(gameType: GameType) {
 
       const nextRoundNumber = (lastRound?.round_number || 0) + 1;
       const startTime = new Date();
-      const endTime = new Date(startTime.getTime() + duration * 60 * 1000);
+      const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
 
       const { data, error } = await supabase
         .from('game_rounds')
         .insert({
           game_type: gameType,
           round_number: nextRoundNumber,
-          duration,
+          duration: durationMinutes,
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
           status: 'betting',
@@ -129,7 +137,7 @@ export function useAdminGameRounds(gameType: GameType) {
         return null;
       }
 
-      toast.success(`Round #${nextRoundNumber} created (${duration} min)`);
+      toast.success(`Round #${nextRoundNumber} created (${durationMinutes} min)`);
       await fetchActiveRound();
       await fetchRecentRounds();
       return data;
@@ -240,7 +248,7 @@ export function useAdminGameRounds(gameType: GameType) {
 
     // Subscribe to realtime updates
     const roundsChannel = supabase
-      .channel(`admin-rounds-${gameType}`)
+      .channel(`admin-rounds-${gameType}-${durationMinutes}`)
       .on(
         'postgres_changes',
         {
@@ -249,15 +257,19 @@ export function useAdminGameRounds(gameType: GameType) {
           table: 'game_rounds',
           filter: `game_type=eq.${gameType}`
         },
-        () => {
-          fetchActiveRound();
-          fetchRecentRounds();
+        (payload) => {
+          const round = payload.new as GameRound;
+          // Only refresh if duration matches
+          if (round && round.duration === durationMinutes) {
+            fetchActiveRound();
+            fetchRecentRounds();
+          }
         }
       )
       .subscribe();
 
     const betsChannel = supabase
-      .channel(`admin-bets-${gameType}`)
+      .channel(`admin-bets-${gameType}-${durationMinutes}`)
       .on(
         'postgres_changes',
         {
@@ -275,7 +287,7 @@ export function useAdminGameRounds(gameType: GameType) {
       supabase.removeChannel(roundsChannel);
       supabase.removeChannel(betsChannel);
     };
-  }, [gameType, fetchActiveRound, fetchRecentRounds]);
+  }, [gameType, durationMinutes, fetchActiveRound, fetchRecentRounds]);
 
   return {
     activeRound,
