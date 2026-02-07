@@ -32,7 +32,7 @@ export default function ColorGame() {
   const navigate = useNavigate();
   const { isAuthenticated, isLoading } = useAuth();
   const { balance, refetchBalance } = useWallet();
-  const { placeBet, currentBet, isPlacingBet, clearCurrentBet, fetchBetForRound } = useBets();
+  const { placeBet, isPlacingBet, clearCurrentBet } = useBets();
   
   const [selectedDuration, setSelectedDuration] = useState<DurationMinutes>(1);
   const gameType: GameType = 'color';
@@ -43,45 +43,26 @@ export default function ColorGame() {
 
   const [selectedColor, setSelectedColor] = useState<GameColor | null>(null);
   const [betAmount, setBetAmount] = useState(100);
-  const [localBet, setLocalBet] = useState<{ color: GameColor; amount: number } | null>(null);
+  const [localBets, setLocalBets] = useState<Array<{ color: GameColor; amount: number }>>([]);
   const [lastResult, setLastResult] = useState<GameColor | null>(null);
   const [showResult, setShowResult] = useState(false);
   // Ref (not state) so StrictMode/dev double-effects can't re-trigger the result overlay.
   const lastProcessedRoundIdRef = useRef<string | null>(null);
 
-  // Sync bet state for the current round (prevents controls staying disabled across rounds)
+  // Reset bet state when round changes
   useEffect(() => {
-    let cancelled = false;
-
-    const sync = async () => {
-      if (!currentRound) {
-        clearCurrentBet();
-        setLocalBet(null);
-        setSelectedColor(null);
-        return;
-      }
-
-      // Always reset local state on round change, then re-hydrate if a bet exists for this round
+    if (!currentRound) {
       clearCurrentBet();
-      setLocalBet(null);
+      setLocalBets([]);
       setSelectedColor(null);
+      return;
+    }
 
-      const bet = await fetchBetForRound(currentRound.id);
-      if (cancelled || !bet) return;
-
-      const choice = bet.bet_choice;
-      if (choice === 'red' || choice === 'green' || choice === 'violet') {
-        setSelectedColor(choice);
-        setBetAmount(bet.amount);
-        setLocalBet({ color: choice, amount: bet.amount });
-      }
-    };
-
-    sync();
-    return () => {
-      cancelled = true;
-    };
-  }, [currentRound?.id, fetchBetForRound, clearCurrentBet]);
+    // Reset local state on round change
+    clearCurrentBet();
+    setLocalBets([]);
+    setSelectedColor(null);
+  }, [currentRound?.id, clearCurrentBet]);
 
   // Handle completed rounds - only trigger for NEW results
   useEffect(() => {
@@ -101,15 +82,21 @@ export default function ColorGame() {
     setLastResult(result);
     setShowResult(true);
     
-    if (localBet && localBet.color === result) {
-      const multiplier = getColorMultiplier(result);
-      const winAmount = localBet.amount * multiplier;
+    // Check if any of the user's bets won
+    const winningBets = localBets.filter(bet => bet.color === result);
+    const losingBets = localBets.filter(bet => bet.color !== result);
+    
+    if (winningBets.length > 0) {
+      const totalWin = winningBets.reduce((sum, bet) => {
+        const multiplier = getColorMultiplier(result);
+        return sum + (bet.amount * multiplier);
+      }, 0);
       toast({
         title: "🎉 You Won!",
-        description: `Congratulations! You won ₹${winAmount}`,
+        description: `Congratulations! You won ₹${totalWin}`,
       });
       refetchBalance();
-    } else if (localBet) {
+    } else if (losingBets.length > 0) {
       toast({
         title: "Better luck next time!",
         description: `The result was ${result}. Keep playing!`,
@@ -119,14 +106,14 @@ export default function ColorGame() {
 
     const timeout = setTimeout(() => {
       setShowResult(false);
-      setLocalBet(null);
+      setLocalBets([]);
       clearCurrentBet();
       setSelectedColor(null);
       refetchBalance();
     }, 3000);
     
     return () => clearTimeout(timeout);
-  }, [recentResults, localBet, refetchBalance, clearCurrentBet]);
+  }, [recentResults, localBets, refetchBalance, clearCurrentBet]);
 
   // Auth redirect - must be after all hooks
   useEffect(() => {
@@ -151,7 +138,7 @@ export default function ColorGame() {
 
 
   const handlePlaceBet = async () => {
-    if (!selectedColor || !isBettingOpen || localBet || isPlacingBet || !currentRound) return;
+    if (!selectedColor || !isBettingOpen || isPlacingBet || !currentRound) return;
 
     if (betAmount > balance) {
       toast({
@@ -164,7 +151,9 @@ export default function ColorGame() {
 
     const bet = await placeBet(currentRound.id, selectedColor, betAmount);
     if (bet) {
-      setLocalBet({ color: selectedColor, amount: betAmount });
+      // Add to local bets array (allows multiple bets)
+      setLocalBets(prev => [...prev, { color: selectedColor, amount: betAmount }]);
+      setSelectedColor(null); // Reset selection for next bet
       refetchBalance();
     }
   };
@@ -175,7 +164,8 @@ export default function ColorGame() {
     violet: { bg: 'bg-game-violet', glow: 'shadow-[0_0_30px_hsl(270_80%_55%/0.4)]', label: 'Violet' },
   };
 
-  const canBet = Boolean(isBettingOpen && !localBet && currentRound);
+  // Users can bet if betting is open, there's a current round, and round is not locked
+  const canBet = Boolean(isBettingOpen && currentRound && !isLocked);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0f2e] via-background to-background pb-24">
@@ -202,7 +192,7 @@ export default function ColorGame() {
           onDurationChange={(dur) => {
             setSelectedDuration(dur);
             // Clear local bet state when switching durations
-            setLocalBet(null);
+            setLocalBets([]);
             clearCurrentBet();
             setSelectedColor(null);
           }}
@@ -245,7 +235,7 @@ export default function ColorGame() {
                   selectedColor={selectedColor}
                   onSelect={(color) => canBet && setSelectedColor(color)}
                   disabled={!canBet}
-                  localBet={localBet}
+                  localBets={localBets}
                 />
               </CardContent>
             </Card>
@@ -271,10 +261,10 @@ export default function ColorGame() {
                 >
                   {isPlacingBet 
                     ? 'Placing Bet...'
-                    : localBet 
-                      ? `✓ ${formatCurrency(localBet.amount)} on ${localBet.color}`
-                      : selectedColor 
-                        ? `Place Bet - ${formatCurrency(betAmount)}`
+                    : selectedColor 
+                      ? `Place Bet - ${formatCurrency(betAmount)}`
+                      : localBets.length > 0
+                        ? `${localBets.length} Bet${localBets.length > 1 ? 's' : ''} Placed - Select More`
                         : 'Select a Color'
                   }
                 </Button>

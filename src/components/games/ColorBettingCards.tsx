@@ -6,7 +6,7 @@ interface ColorBettingCardsProps {
   selectedColor: GameColor | null;
   onSelect: (color: GameColor) => void;
   disabled?: boolean;
-  localBet?: { color: GameColor; amount: number } | null;
+  localBets?: Array<{ color: GameColor; amount: number }>;
 }
 
 const COLOR_CONFIG = {
@@ -34,7 +34,7 @@ export function ColorBettingCards({
   selectedColor, 
   onSelect, 
   disabled = false,
-  localBet 
+  localBets = []
 }: ColorBettingCardsProps) {
   const colors: GameColor[] = ['red', 'green', 'violet'];
 
@@ -43,7 +43,10 @@ export function ColorBettingCards({
       {colors.map((color, index) => {
         const config = COLOR_CONFIG[color];
         const isSelected = selectedColor === color;
-        const hasBet = localBet?.color === color;
+        // Check if any bet was placed on this color
+        const betsOnColor = localBets.filter(bet => bet.color === color);
+        const hasBet = betsOnColor.length > 0;
+        const totalBetAmount = betsOnColor.reduce((sum, bet) => sum + bet.amount, 0);
         
         return (
           <motion.button
@@ -78,9 +81,9 @@ export function ColorBettingCards({
               <motion.div 
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                className="absolute -top-2 -right-2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg"
+                className="absolute -top-2 -right-2 min-w-[40px] h-10 bg-white rounded-full flex items-center justify-center shadow-lg px-2"
               >
-                <span className="text-green-600 text-lg font-bold">✓</span>
+                <span className="text-green-600 text-sm font-bold">₹{totalBetAmount}</span>
               </motion.div>
             )}
             
