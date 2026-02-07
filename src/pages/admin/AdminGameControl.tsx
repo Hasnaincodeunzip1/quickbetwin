@@ -99,6 +99,13 @@ function GameControlPanel({ gameType }: { gameType: GameType }) {
 
   const [selectedDuration, setSelectedDuration] = useState<string>("1");
   const [selectedResult, setSelectedResult] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await refreshData();
+    setIsRefreshing(false);
+  };
 
   const gameOptions = GAME_OPTIONS[gameType];
   const multipliers = MULTIPLIERS[gameType];
@@ -223,8 +230,8 @@ function GameControlPanel({ gameType }: { gameType: GameType }) {
                 >
                   {activeRound.status === 'betting' ? 'Betting Open' : 'Betting Locked'}
                 </Badge>
-                <Button variant="ghost" size="icon" onClick={refreshData}>
-                  <RefreshCw className="w-4 h-4" />
+                <Button variant="ghost" size="icon" onClick={handleRefresh} disabled={isRefreshing}>
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </Button>
               </div>
             </div>
@@ -264,7 +271,11 @@ function GameControlPanel({ gameType }: { gameType: GameType }) {
             {/* Bet Distribution */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
               {gameOptions.map((option) => {
-                const profit = calculateProfit(option);
+                const betCount = getBetCount(option);
+                const betAmount = getBetAmount(option);
+                const payout = calculatePayout(option);
+                // Only show profit if there are any bets
+                const profit = totalBets > 0 ? calculateProfit(option) : 0;
                 const isSelected = selectedResult === option;
                 
                 return (
@@ -287,20 +298,20 @@ function GameControlPanel({ gameType }: { gameType: GameType }) {
                     <div className="space-y-1 text-xs">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Bets</span>
-                        <span>{getBetCount(option)}</span>
+                        <span>{betCount}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Amount</span>
-                        <span>{formatCurrency(getBetAmount(option))}</span>
+                        <span>{formatCurrency(betAmount)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Payout ({multipliers[option]}x)</span>
-                        <span className="text-game-red">{formatCurrency(calculatePayout(option))}</span>
+                        <span className="text-game-red">{formatCurrency(payout)}</span>
                       </div>
                       <div className="flex justify-between pt-1 border-t border-border">
                         <span className="text-muted-foreground">Profit</span>
-                        <span className={profit >= 0 ? 'text-game-green font-bold' : 'text-game-red font-bold'}>
-                          {profit >= 0 ? '+' : ''}{formatCurrency(profit)}
+                        <span className={profit > 0 ? 'text-game-green font-bold' : profit < 0 ? 'text-game-red font-bold' : 'text-muted-foreground'}>
+                          {totalBets > 0 ? (profit >= 0 ? '+' : '') + formatCurrency(profit) : '—'}
                         </span>
                       </div>
                     </div>
@@ -344,14 +355,20 @@ function GameControlPanel({ gameType }: { gameType: GameType }) {
                 </Button>
                 <Button 
                   onClick={handleSetResult}
-                  disabled={!selectedResult}
+                  disabled={!selectedResult || activeRound.status !== 'locked'}
                   className="gap-2"
+                  title={activeRound.status !== 'locked' ? 'Lock betting first before setting result' : ''}
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   Set Result
                 </Button>
               </div>
             </div>
+            {activeRound.status === 'betting' && (
+              <p className="text-xs text-muted-foreground mt-2 text-center">
+                ⚠️ Lock betting before setting the result
+              </p>
+            )}
           </CardContent>
         </Card>
       )}

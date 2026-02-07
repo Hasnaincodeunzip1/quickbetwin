@@ -187,8 +187,13 @@ export default function DiceGame() {
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
         <DurationSelector 
           selectedDuration={selectedDuration}
-          onDurationChange={setSelectedDuration}
-          disabled={!!localBet}
+          onDurationChange={(dur) => {
+            setSelectedDuration(dur);
+            setLocalBet(null);
+            clearCurrentBet();
+            setSelectedNumber(null);
+          }}
+          disabled={false}
         />
 
         {!currentRound ? (

@@ -56,24 +56,7 @@ export function useBets() {
         return null;
       }
 
-      // Check if already bet on this round
-      const { data: existingBet } = await supabase
-        .from('bets')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('round_id', roundId)
-        .maybeSingle();
-
-      if (existingBet) {
-        toast({
-          title: "Already placed a bet",
-          description: "You can only place one bet per round",
-          variant: "destructive",
-        });
-        return null;
-      }
-
-      // Place the bet
+      // Place the bet (users can place multiple bets per round)
       const { data: bet, error: betError } = await supabase
         .from('bets')
         .insert({

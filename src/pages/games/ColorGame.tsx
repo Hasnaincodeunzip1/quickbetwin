@@ -197,11 +197,17 @@ export default function ColorGame() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-4 space-y-4">
-        {/* Duration Selector */}
+        {/* Duration Selector - always allow switching */}
         <DurationSelector 
           selectedDuration={selectedDuration}
-          onDurationChange={setSelectedDuration}
-          disabled={!!localBet}
+          onDurationChange={(dur) => {
+            setSelectedDuration(dur);
+            // Clear local bet state when switching durations
+            setLocalBet(null);
+            clearCurrentBet();
+            setSelectedColor(null);
+          }}
+          disabled={false}
         />
 
         {/* Waiting State or Timer */}
