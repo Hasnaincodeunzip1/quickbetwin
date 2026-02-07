@@ -46,19 +46,8 @@ export function DurationSelector({
               type="button"
               disabled={disabled}
               aria-pressed={isSelected}
-              onTouchStart={(e) => {
-                e.preventDefault();
-                handleSelect(duration.value);
-              }}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleSelect(duration.value);
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                handleSelect(duration.value);
-              }}
-              className={`relative px-4 py-2 rounded-full text-xs font-medium transition-all select-none cursor-pointer touch-manipulation ${
+              onClick={() => handleSelect(duration.value)}
+              className={`relative px-4 py-2 rounded-full text-xs font-medium transition-all select-none cursor-pointer touch-manipulation active:scale-95 ${
                 isSelected
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:text-foreground hover:bg-secondary-foreground/10'

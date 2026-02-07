@@ -262,20 +262,9 @@ export default function ColorGame() {
                 />
 
                 <Button
-                  onTouchStart={(e) => {
-                    e.preventDefault();
-                    handlePlaceBet();
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    handlePlaceBet();
-                  }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handlePlaceBet();
-                  }}
+                  onClick={handlePlaceBet}
                   disabled={!selectedColor || !canBet || betAmount > balance || isPlacingBet}
-                  className="w-full h-14 text-lg font-bold bg-gradient-to-r from-primary via-primary to-amber-500 hover:opacity-90 text-primary-foreground shadow-lg shadow-primary/30 disabled:opacity-50 disabled:shadow-none"
+                  className="w-full h-14 text-lg font-bold bg-gradient-to-r from-primary via-primary to-amber-500 hover:opacity-90 text-primary-foreground shadow-lg shadow-primary/30 disabled:opacity-50 disabled:shadow-none touch-manipulation active:scale-[0.98]"
                 >
                   {isPlacingBet 
                     ? 'Placing Bet...'
