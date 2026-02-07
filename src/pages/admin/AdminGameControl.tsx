@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { 
   Gamepad2, 
@@ -267,42 +267,74 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
   }, [activeRound]);
 
   // Auto-process: complete round at end_time, then start the next round
+  // Use a ref to prevent duplicate operations during async processing
+  const autoProcessingRef = useRef(false);
+  const lastCreatedRoundRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!autoStartNext || isAutoProcessing || isCreating) return;
 
     let timeout: number | undefined;
+    let cancelled = false;
 
-    // Case 1: No active round - start a new one
+    // Case 1: No active round - start a new one (with duplicate prevention)
     if (!activeRound) {
-      timeout = window.setTimeout(() => {
-        createRound();
-      }, 2000);
-      return () => window.clearTimeout(timeout);
+      // Prevent creating duplicate rounds by checking if we just created one
+      const lastCreated = lastCreatedRoundRef.current;
+      
+      timeout = window.setTimeout(async () => {
+        if (cancelled || autoProcessingRef.current) return;
+        
+        // Double-check there's still no active round before creating
+        autoProcessingRef.current = true;
+        try {
+          const round = await createRound();
+          if (round?.id) {
+            lastCreatedRoundRef.current = round.id;
+          }
+        } finally {
+          autoProcessingRef.current = false;
+        }
+      }, 2500); // Slightly longer delay to prevent race conditions
+      
+      return () => {
+        cancelled = true;
+        window.clearTimeout(timeout);
+      };
     }
+
+    // Reset lastCreatedRound when we have an active round
+    lastCreatedRoundRef.current = null;
 
     // Case 2: Active round exists - schedule work for when it expires
     const endTimeMs = new Date(activeRound.end_time).getTime();
-    const delayMs = Math.max(0, endTimeMs - Date.now()) + 250;
+    const delayMs = Math.max(0, endTimeMs - Date.now()) + 500; // 500ms buffer
 
     timeout = window.setTimeout(() => {
+      if (cancelled || autoProcessingRef.current) return;
+
       const processRound = async () => {
         try {
           const now = Date.now();
           if (now < endTimeMs) return; // safety
 
+          autoProcessingRef.current = true;
+          setIsAutoProcessing(true);
+
           if (activeRound.status === 'betting') {
-            setIsAutoProcessing(true);
             await lockRound();
             await new Promise((r) => setTimeout(r, 500));
-            await setResult(findBestResult());
+            const bestResult = findBestResult();
+            await setResult(bestResult);
           } else if (activeRound.status === 'locked') {
-            setIsAutoProcessing(true);
-            await setResult(findBestResult());
+            const bestResult = findBestResult();
+            await setResult(bestResult);
           }
         } catch (error) {
           console.error('Auto-process failed:', error);
         } finally {
           setIsAutoProcessing(false);
+          autoProcessingRef.current = false;
         }
       };
 
@@ -310,6 +342,7 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
     }, delayMs);
 
     return () => {
+      cancelled = true;
       window.clearTimeout(timeout);
     };
   }, [
@@ -319,12 +352,6 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
     activeRound?.end_time,
     isAutoProcessing,
     isCreating,
-    lockRound,
-    setResult,
-    createRound,
-    betStats,
-    totalBets,
-    totalAmount,
   ]);
 
   const formatTimeDisplay = (seconds: number) => {
