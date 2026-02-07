@@ -77,6 +77,10 @@ const MULTIPLIERS: Record<GameType, Record<string, number>> = {
 
 const DURATIONS: DurationMinutes[] = [1, 3, 5];
 
+const ADMIN_AUTO_START_SETTINGS_KEY = "admin_auto_start_next_round";
+
+type AdminAutoStartSettings = Partial<Record<GameType, Partial<Record<string, boolean>>>>;
+
 // Individual duration control panel
 function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameType; durationMinutes: DurationMinutes }) {
   const {
@@ -99,6 +103,104 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
 
   const gameOptions = GAME_OPTIONS[gameType];
   const multipliers = MULTIPLIERS[gameType];
+
+  // Load + persist "Auto-start next round" per game+duration
+  useEffect(() => {
+    let isMounted = true;
+
+    const load = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('id, value')
+          .eq('key', ADMIN_AUTO_START_SETTINGS_KEY)
+          .maybeSingle();
+
+        if (error) throw error;
+
+        const value = (data?.value ?? {}) as AdminAutoStartSettings;
+        const enabled = Boolean(value?.[gameType]?.[String(durationMinutes)]);
+        if (isMounted) setAutoStartNext(enabled);
+      } catch (e) {
+        console.error('Failed to load auto-start setting:', e);
+      }
+    };
+
+    load();
+
+    const channel = supabase
+      .channel(`admin-auto-start-${gameType}-${durationMinutes}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'app_settings',
+          filter: `key=eq.${ADMIN_AUTO_START_SETTINGS_KEY}`,
+        },
+        (payload) => {
+          const next = (payload.new as { value?: unknown } | null)?.value as AdminAutoStartSettings | undefined;
+          const enabled = Boolean(next?.[gameType]?.[String(durationMinutes)]);
+          setAutoStartNext(enabled);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, [gameType, durationMinutes]);
+
+  const persistAutoStart = async (enabled: boolean) => {
+    // read current value, then update one leaf
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('id, value')
+      .eq('key', ADMIN_AUTO_START_SETTINGS_KEY)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    const current = (data?.value ?? {}) as AdminAutoStartSettings;
+    const nextValue: AdminAutoStartSettings = {
+      ...current,
+      [gameType]: {
+        ...(current?.[gameType] ?? {}),
+        [String(durationMinutes)]: enabled,
+      },
+    };
+
+    if (data?.id) {
+      const { error: updateError } = await supabase
+        .from('app_settings')
+        .update({ value: nextValue })
+        .eq('id', data.id);
+      if (updateError) throw updateError;
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from('app_settings')
+      .insert({ key: ADMIN_AUTO_START_SETTINGS_KEY, value: nextValue });
+    if (insertError) throw insertError;
+  };
+
+  const handleAutoStartChange = async (checked: boolean) => {
+    setAutoStartNext(checked);
+    try {
+      await persistAutoStart(checked);
+    } catch (e) {
+      console.error('Failed to persist auto-start setting:', e);
+      // revert UI
+      setAutoStartNext((prev) => !prev);
+      toast({
+        title: 'Auto-start not saved',
+        description: 'Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
 
   // Calculate stats
   const totalBets = betStats.reduce((sum, s) => sum + s.count, 0);
@@ -130,11 +232,11 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
       // No bets - pick random
       return gameOptions[Math.floor(Math.random() * gameOptions.length)];
     }
-    
+
     // Find option with highest profit
     let bestOption = gameOptions[0];
     let bestProfit = calculateProfit(gameOptions[0]);
-    
+
     for (const option of gameOptions) {
       const profit = calculateProfit(option);
       if (profit > bestProfit) {
@@ -142,7 +244,7 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
         bestOption = option;
       }
     }
-    
+
     return bestOption;
   };
 
@@ -164,65 +266,66 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
     return () => clearInterval(interval);
   }, [activeRound]);
 
-  // Auto-process: when time expires and autoStartNext is on, complete round and start new one
+  // Auto-process: complete round at end_time, then start the next round
   useEffect(() => {
     if (!autoStartNext || isAutoProcessing || isCreating) return;
-    
+
+    let timeout: number | undefined;
+
     // Case 1: No active round - start a new one
     if (!activeRound) {
-      const timeout = setTimeout(() => {
+      timeout = window.setTimeout(() => {
         createRound();
       }, 2000);
-      return () => clearTimeout(timeout);
+      return () => window.clearTimeout(timeout);
     }
-    
-    // Case 2: Active round exists but time has expired - auto complete it
-    const endTime = new Date(activeRound.end_time).getTime();
-    const now = Date.now();
-    const expired = now >= endTime;
-    
-    if (expired && activeRound.status === 'betting') {
-      // Need to lock first, then set result
-      setIsAutoProcessing(true);
-      
+
+    // Case 2: Active round exists - schedule work for when it expires
+    const endTimeMs = new Date(activeRound.end_time).getTime();
+    const delayMs = Math.max(0, endTimeMs - Date.now()) + 250;
+
+    timeout = window.setTimeout(() => {
       const processRound = async () => {
         try {
-          // Lock the round
-          await lockRound();
-          
-          // Wait a bit then set the best result
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          const bestResult = findBestResult();
-          await setResult(bestResult);
-          
-          // New round will be created by the !activeRound case
+          const now = Date.now();
+          if (now < endTimeMs) return; // safety
+
+          if (activeRound.status === 'betting') {
+            setIsAutoProcessing(true);
+            await lockRound();
+            await new Promise((r) => setTimeout(r, 500));
+            await setResult(findBestResult());
+          } else if (activeRound.status === 'locked') {
+            setIsAutoProcessing(true);
+            await setResult(findBestResult());
+          }
         } catch (error) {
           console.error('Auto-process failed:', error);
         } finally {
           setIsAutoProcessing(false);
         }
       };
-      
+
       processRound();
-    } else if (expired && activeRound.status === 'locked') {
-      // Already locked, just set result
-      setIsAutoProcessing(true);
-      
-      const processRound = async () => {
-        try {
-          const bestResult = findBestResult();
-          await setResult(bestResult);
-        } catch (error) {
-          console.error('Auto-process failed:', error);
-        } finally {
-          setIsAutoProcessing(false);
-        }
-      };
-      
-      processRound();
-    }
-  }, [autoStartNext, activeRound, timeLeft, isAutoProcessing, isCreating, lockRound, setResult, createRound]);
+    }, delayMs);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [
+    autoStartNext,
+    activeRound?.id,
+    activeRound?.status,
+    activeRound?.end_time,
+    isAutoProcessing,
+    isCreating,
+    lockRound,
+    setResult,
+    createRound,
+    betStats,
+    totalBets,
+    totalAmount,
+  ]);
 
   const formatTimeDisplay = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -299,7 +402,7 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
           </div>
           <Switch
             checked={autoStartNext}
-            onCheckedChange={setAutoStartNext}
+            onCheckedChange={handleAutoStartChange}
             className="h-5 w-9"
           />
         </div>
