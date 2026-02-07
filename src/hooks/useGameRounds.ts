@@ -100,21 +100,31 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
         (payload) => {
           const round = payload.new as GameRound;
           // Only process if duration matches
-          if (round && round.duration === durationMinutes) {
-            if (round.status === 'betting' || round.status === 'locked') {
-              setCurrentRound(round);
-            } else if (round.status === 'completed' && round.result) {
-              // Add to recent results and clear current round
-              setRecentResults((prev) => {
-                const exists = prev.some((r) => r.id === round.id);
-                if (exists) {
-                  return prev.map((r) => (r.id === round.id ? round : r));
-                }
-                return [round, ...prev].slice(0, 10);
-              });
-              // Clear current round if it was completed
-              setCurrentRound((prev) => (prev?.id === round.id ? null : prev));
-            }
+          if (!round || round.duration !== durationMinutes) return;
+
+          if (round.status === 'betting' || round.status === 'locked') {
+            // Prevent "round flapping" when multiple active rounds exist (race conditions)
+            // by only moving forward (higher round_number) or updating the same round.
+            setCurrentRound((prev) => {
+              if (!prev) return round;
+              if (prev.id === round.id) return round;
+              if (round.round_number > prev.round_number) return round;
+              return prev;
+            });
+            return;
+          }
+
+          if (round.status === 'completed' && round.result) {
+            // Add to recent results and clear current round
+            setRecentResults((prev) => {
+              const exists = prev.some((r) => r.id === round.id);
+              if (exists) {
+                return prev.map((r) => (r.id === round.id ? round : r));
+              }
+              return [round, ...prev].slice(0, 10);
+            });
+            // Clear current round if it was completed
+            setCurrentRound((prev) => (prev?.id === round.id ? null : prev));
           }
         }
       )
