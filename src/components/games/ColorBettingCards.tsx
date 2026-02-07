@@ -66,12 +66,21 @@ export function ColorBettingCards({
         return (
           <motion.button
             key={color}
+            type="button"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
             whileHover={{ scale: disabled ? 1 : 1.05, y: disabled ? 0 : -4 }}
             whileTap={{ scale: disabled ? 1 : 0.95 }}
-            onPointerDown={(e) => {
+            onTouchStart={(e) => {
+              e.preventDefault();
+              handleSelect(color);
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleSelect(color);
+            }}
+            onClick={(e) => {
               e.preventDefault();
               handleSelect(color);
             }}

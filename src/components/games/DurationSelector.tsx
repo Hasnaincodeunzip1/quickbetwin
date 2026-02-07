@@ -46,7 +46,15 @@ export function DurationSelector({
               type="button"
               disabled={disabled}
               aria-pressed={isSelected}
-              onPointerDown={(e) => {
+              onTouchStart={(e) => {
+                e.preventDefault();
+                handleSelect(duration.value);
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelect(duration.value);
+              }}
+              onClick={(e) => {
                 e.preventDefault();
                 handleSelect(duration.value);
               }}
