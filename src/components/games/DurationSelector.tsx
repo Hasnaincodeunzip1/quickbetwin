@@ -1,3 +1,4 @@
+import { useCallback, useRef } from 'react';
 import { Clock } from 'lucide-react';
 import { DurationMinutes } from '@/hooks/useGameRounds';
 
@@ -18,6 +19,20 @@ export function DurationSelector({
   onDurationChange,
   disabled = false,
 }: DurationSelectorProps) {
+  // Debounce to prevent double-firing from touch + click
+  const lastFireRef = useRef(0);
+
+  const handleSelect = useCallback((duration: DurationMinutes) => {
+    if (disabled) return;
+    
+    const now = Date.now();
+    if (now - lastFireRef.current < 300) return;
+    lastFireRef.current = now;
+    
+    console.log('[DurationSelector] Selected:', duration);
+    onDurationChange(duration);
+  }, [disabled, onDurationChange]);
+
   return (
     <div className="flex items-center justify-center gap-2 mb-4">
       <Clock className="w-4 h-4 text-muted-foreground" />
@@ -31,13 +46,11 @@ export function DurationSelector({
               type="button"
               disabled={disabled}
               aria-pressed={isSelected}
-              onClick={() => {
-                if (!disabled) {
-                  console.log('[DurationSelector] onClick:', duration.value);
-                  onDurationChange(duration.value);
-                }
+              onPointerDown={(e) => {
+                e.preventDefault();
+                handleSelect(duration.value);
               }}
-              className={`relative px-4 py-2 rounded-full text-xs font-medium transition-all select-none cursor-pointer ${
+              className={`relative px-4 py-2 rounded-full text-xs font-medium transition-all select-none cursor-pointer touch-manipulation ${
                 isSelected
                   ? 'bg-primary text-primary-foreground'
                   : 'text-muted-foreground hover:text-foreground hover:bg-secondary-foreground/10'
