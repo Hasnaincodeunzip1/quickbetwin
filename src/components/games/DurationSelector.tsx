@@ -18,6 +18,13 @@ export function DurationSelector({
   onDurationChange, 
   disabled = false 
 }: DurationSelectorProps) {
+  const handleClick = (duration: DurationMinutes) => {
+    console.log('[DurationSelector] Clicked:', duration, 'current:', selectedDuration, 'disabled:', disabled);
+    if (!disabled) {
+      onDurationChange(duration);
+    }
+  };
+
   return (
     <div className="flex items-center justify-center gap-2 mb-4">
       <Clock className="w-4 h-4 text-muted-foreground" />
@@ -26,19 +33,13 @@ export function DurationSelector({
           <button
             key={duration.value}
             type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!disabled && duration.value !== selectedDuration) {
-                onDurationChange(duration.value);
-              }
-            }}
+            onClick={() => handleClick(duration.value)}
             disabled={disabled}
-            className={`relative px-4 py-2 rounded-full text-xs font-medium transition-all ${
+            className={`relative px-4 py-2 rounded-full text-xs font-medium transition-all cursor-pointer ${
               selectedDuration === duration.value
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-secondary-foreground/10'
-            } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+            } ${disabled ? 'cursor-not-allowed opacity-50' : ''}`}
           >
             {duration.label}
           </button>
