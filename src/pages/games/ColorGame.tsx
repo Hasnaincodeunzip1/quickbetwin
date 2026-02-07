@@ -48,6 +48,8 @@ export default function ColorGame() {
   const [showResult, setShowResult] = useState(false);
   // Ref (not state) so StrictMode/dev double-effects can't re-trigger the result overlay.
   const lastProcessedRoundIdRef = useRef<string | null>(null);
+  // Debounce to prevent double-taps from placing multiple bets
+  const lastPlaceBetFireRef = useRef(0);
 
   // Reset bet state when round changes
   useEffect(() => {
@@ -138,6 +140,11 @@ export default function ColorGame() {
 
 
   const handlePlaceBet = async () => {
+    // Touch devices can fire multiple events (pointer + click). Guard here.
+    const now = Date.now();
+    if (now - lastPlaceBetFireRef.current < 500) return;
+    lastPlaceBetFireRef.current = now;
+
     if (!selectedColor || !isBettingOpen || isPlacingBet || !currentRound) return;
 
     if (betAmount > balance) {
@@ -255,7 +262,18 @@ export default function ColorGame() {
                 />
 
                 <Button
-                  onClick={handlePlaceBet}
+                  onTouchStart={(e) => {
+                    e.preventDefault();
+                    handlePlaceBet();
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    handlePlaceBet();
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handlePlaceBet();
+                  }}
                   disabled={!selectedColor || !canBet || betAmount > balance || isPlacingBet}
                   className="w-full h-14 text-lg font-bold bg-gradient-to-r from-primary via-primary to-amber-500 hover:opacity-90 text-primary-foreground shadow-lg shadow-primary/30 disabled:opacity-50 disabled:shadow-none"
                 >
