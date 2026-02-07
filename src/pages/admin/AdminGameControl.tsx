@@ -95,6 +95,7 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const [autoStartNext, setAutoStartNext] = useState(false);
+  const [isAutoProcessing, setIsAutoProcessing] = useState(false);
 
   const gameOptions = GAME_OPTIONS[gameType];
   const multipliers = MULTIPLIERS[gameType];
@@ -123,7 +124,29 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
     return totalAmount - calculatePayout(choice);
   };
 
-  // Live timer update + auto-start next round
+  // Find the most profitable result option
+  const findBestResult = () => {
+    if (totalBets === 0) {
+      // No bets - pick random
+      return gameOptions[Math.floor(Math.random() * gameOptions.length)];
+    }
+    
+    // Find option with highest profit
+    let bestOption = gameOptions[0];
+    let bestProfit = calculateProfit(gameOptions[0]);
+    
+    for (const option of gameOptions) {
+      const profit = calculateProfit(option);
+      if (profit > bestProfit) {
+        bestProfit = profit;
+        bestOption = option;
+      }
+    }
+    
+    return bestOption;
+  };
+
+  // Live timer update
   useEffect(() => {
     if (!activeRound) {
       setTimeLeft(0);
@@ -141,17 +164,65 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
     return () => clearInterval(interval);
   }, [activeRound]);
 
-  // Auto-start new round when current round ends and autoStartNext is enabled
+  // Auto-process: when time expires and autoStartNext is on, complete round and start new one
   useEffect(() => {
-    if (!autoStartNext || activeRound || isCreating) return;
+    if (!autoStartNext || isAutoProcessing || isCreating) return;
     
-    // Small delay before auto-starting
-    const timeout = setTimeout(() => {
-      createRound();
-    }, 2000);
+    // Case 1: No active round - start a new one
+    if (!activeRound) {
+      const timeout = setTimeout(() => {
+        createRound();
+      }, 2000);
+      return () => clearTimeout(timeout);
+    }
     
-    return () => clearTimeout(timeout);
-  }, [autoStartNext, activeRound, isCreating, createRound]);
+    // Case 2: Active round exists but time has expired - auto complete it
+    const endTime = new Date(activeRound.end_time).getTime();
+    const now = Date.now();
+    const expired = now >= endTime;
+    
+    if (expired && activeRound.status === 'betting') {
+      // Need to lock first, then set result
+      setIsAutoProcessing(true);
+      
+      const processRound = async () => {
+        try {
+          // Lock the round
+          await lockRound();
+          
+          // Wait a bit then set the best result
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          const bestResult = findBestResult();
+          await setResult(bestResult);
+          
+          // New round will be created by the !activeRound case
+        } catch (error) {
+          console.error('Auto-process failed:', error);
+        } finally {
+          setIsAutoProcessing(false);
+        }
+      };
+      
+      processRound();
+    } else if (expired && activeRound.status === 'locked') {
+      // Already locked, just set result
+      setIsAutoProcessing(true);
+      
+      const processRound = async () => {
+        try {
+          const bestResult = findBestResult();
+          await setResult(bestResult);
+        } catch (error) {
+          console.error('Auto-process failed:', error);
+        } finally {
+          setIsAutoProcessing(false);
+        }
+      };
+      
+      processRound();
+    }
+  }, [autoStartNext, activeRound, timeLeft, isAutoProcessing, isCreating, lockRound, setResult, createRound]);
 
   const formatTimeDisplay = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
