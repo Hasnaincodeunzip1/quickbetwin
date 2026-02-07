@@ -94,6 +94,7 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
   const [selectedResult, setSelectedResult] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [autoStartNext, setAutoStartNext] = useState(false);
 
   const gameOptions = GAME_OPTIONS[gameType];
   const multipliers = MULTIPLIERS[gameType];
@@ -122,7 +123,7 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
     return totalAmount - calculatePayout(choice);
   };
 
-  // Live timer update
+  // Live timer update + auto-start next round
   useEffect(() => {
     if (!activeRound) {
       setTimeLeft(0);
@@ -139,6 +140,18 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
   }, [activeRound]);
+
+  // Auto-start new round when current round ends and autoStartNext is enabled
+  useEffect(() => {
+    if (!autoStartNext || activeRound || isCreating) return;
+    
+    // Small delay before auto-starting
+    const timeout = setTimeout(() => {
+      createRound();
+    }, 2000);
+    
+    return () => clearTimeout(timeout);
+  }, [autoStartNext, activeRound, isCreating, createRound]);
 
   const formatTimeDisplay = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -207,10 +220,25 @@ function DurationControlPanel({ gameType, durationMinutes }: { gameType: GameTyp
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Auto-start toggle */}
+        <div className="flex items-center justify-between py-2 px-3 bg-secondary/50 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Play className="w-3 h-3 text-muted-foreground" />
+            <span className="text-xs">Auto-start next round</span>
+          </div>
+          <Switch
+            checked={autoStartNext}
+            onCheckedChange={setAutoStartNext}
+            className="h-5 w-9"
+          />
+        </div>
+
         {!activeRound ? (
           <div className="text-center py-4">
-            <p className="text-sm text-muted-foreground mb-3">No active round</p>
-            <Button onClick={createRound} disabled={isCreating} size="sm" className="gap-2">
+            <p className="text-sm text-muted-foreground mb-3">
+              {autoStartNext ? 'Starting next round...' : 'No active round'}
+            </p>
+            <Button onClick={() => createRound()} disabled={isCreating} size="sm" className="gap-2">
               {isCreating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
               Start {durationMinutes} Min Round
             </Button>
