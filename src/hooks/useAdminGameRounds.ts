@@ -199,45 +199,51 @@ export function useAdminGameRounds({ gameType, durationMinutes }: UseAdminGameRo
   const cancelRound = async () => {
     if (!activeRound) return;
 
-    // Refund all bets
-    const { data: bets, error: betsError } = await supabase
-      .from('bets')
-      .select('user_id, amount')
-      .eq('round_id', activeRound.id);
+    try {
+      // Refund all bets using the RPC function (respects RLS)
+      const { data: bets, error: betsError } = await supabase
+        .from('bets')
+        .select('user_id, amount')
+        .eq('round_id', activeRound.id);
 
-    if (!betsError && bets) {
-      for (const bet of bets) {
-        // Refund to wallet
-        const { data: wallet } = await supabase
-          .from('wallets')
-          .select('balance')
-          .eq('user_id', bet.user_id)
-          .single();
+      if (betsError) {
+        console.error('Error fetching bets for refund:', betsError);
+        toast.error('Failed to fetch bets for refund');
+        return;
+      }
 
-        if (wallet) {
-          await supabase
-            .from('wallets')
-            .update({ balance: Number(wallet.balance) + Number(bet.amount) })
-            .eq('user_id', bet.user_id);
+      if (bets && bets.length > 0) {
+        for (const bet of bets) {
+          const { error: refundError } = await supabase.rpc('refund_wallet_balance', {
+            p_user_id: bet.user_id,
+            p_amount: Number(bet.amount),
+          });
+
+          if (refundError) {
+            console.error('Error refunding bet:', refundError);
+          }
         }
       }
+
+      const { error } = await supabase
+        .from('game_rounds')
+        .update({ status: 'cancelled' })
+        .eq('id', activeRound.id);
+
+      if (error) {
+        console.error('Error cancelling round:', error);
+        toast.error('Failed to cancel round');
+        return;
+      }
+
+      toast.success('Round cancelled, bets refunded');
+      setActiveRound(null);
+      setBetStats([]);
+      await fetchRecentRounds();
+    } catch (err) {
+      console.error('Cancel round error:', err);
+      toast.error('An error occurred while cancelling the round');
     }
-
-    const { error } = await supabase
-      .from('game_rounds')
-      .update({ status: 'cancelled' })
-      .eq('id', activeRound.id);
-
-    if (error) {
-      console.error('Error cancelling round:', error);
-      toast.error('Failed to cancel round');
-      return;
-    }
-
-    toast.success('Round cancelled, bets refunded');
-    setActiveRound(null);
-    setBetStats([]);
-    await fetchRecentRounds();
   };
 
   useEffect(() => {
