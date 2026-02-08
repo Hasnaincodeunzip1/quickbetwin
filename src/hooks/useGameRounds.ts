@@ -38,16 +38,22 @@ export function useGameRounds({ gameType, durationMinutes }: UseGameRoundsOption
   // Fetch current active or locked round for specific duration
   const fetchCurrentRound = useCallback(async () => {
     try {
-      const { data: activeRound } = await supabase
+      const { data: rounds, error } = await supabase
         .from('game_rounds')
         .select('*')
         .eq('game_type', gameType)
         .eq('duration', durationMinutes)
         .in('status', ['betting', 'locked'])
         .order('round_number', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
 
+      if (error) {
+        console.error('[useGameRounds] Error fetching current round:', error);
+        return;
+      }
+
+      const activeRound = rounds && rounds.length > 0 ? rounds[0] : null;
+      console.log('[useGameRounds] Fetched active round:', activeRound?.round_number, 'duration:', durationMinutes, 'status:', activeRound?.status, 'end_time:', activeRound?.end_time);
       setCurrentRound(activeRound as GameRound | null);
     } catch (error) {
       console.error('Error fetching current round:', error);
