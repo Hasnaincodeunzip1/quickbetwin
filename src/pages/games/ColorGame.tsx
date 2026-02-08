@@ -142,10 +142,38 @@ export default function ColorGame() {
   const handlePlaceBet = async () => {
     // Touch devices can fire multiple events (pointer + click). Guard here.
     const now = Date.now();
-    if (now - lastPlaceBetFireRef.current < 500) return;
+    if (now - lastPlaceBetFireRef.current < 500) {
+      console.log('[ColorGame] handlePlaceBet blocked by debounce');
+      return;
+    }
     lastPlaceBetFireRef.current = now;
 
-    if (!selectedColor || !isBettingOpen || isPlacingBet || !currentRound) return;
+    console.log('[ColorGame] handlePlaceBet called:', {
+      selectedColor,
+      isBettingOpen,
+      isPlacingBet,
+      currentRound: currentRound?.id,
+      roundNumber: currentRound?.round_number,
+      roundStatus: currentRound?.status,
+      roundEndTime: currentRound?.end_time
+    });
+
+    if (!selectedColor) {
+      console.log('[ColorGame] No color selected');
+      return;
+    }
+    if (!isBettingOpen) {
+      console.log('[ColorGame] Betting not open');
+      return;
+    }
+    if (isPlacingBet) {
+      console.log('[ColorGame] Already placing bet');
+      return;
+    }
+    if (!currentRound) {
+      console.log('[ColorGame] No current round');
+      return;
+    }
 
     if (betAmount > balance) {
       toast({
@@ -156,7 +184,9 @@ export default function ColorGame() {
       return;
     }
 
+    console.log('[ColorGame] Calling placeBet:', currentRound.id, selectedColor, betAmount);
     const bet = await placeBet(currentRound.id, selectedColor, betAmount);
+    console.log('[ColorGame] placeBet result:', bet);
     if (bet) {
       // Add to local bets array (allows multiple bets)
       setLocalBets(prev => [...prev, { color: selectedColor, amount: betAmount }]);
